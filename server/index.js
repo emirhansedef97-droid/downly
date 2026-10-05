@@ -240,33 +240,77 @@ function spawnYtdlp(args) {
   });
 }
 
+/*
+ * KALİTE SEÇENEKLERİ
+ *
+ * Video ve audio ayrı gelen platformlarda da
+ * kalite seçeneklerini göstermek için yalnızca
+ * video yüksekliğini topluyoruz.
+ *
+ * Örn:
+ * q1080 = 1080p
+ * q720  = 720p
+ * q480  = 480p
+ * q360  = 360p
+ */
+
 function normalizeFormats(info) {
-  const map = new Map();
+  const heights = new Set();
 
   for (const f of info.formats || []) {
-    if (!f.url) continue;
-    if (f.vcodec === 'none' || f.acodec === 'none') continue;
-
     const height = Number(f.height || 0);
 
     if (!height) continue;
 
-    const key = `${height}-${f.ext || 'mp4'}`;
-
-    if (!map.has(key)) {
-      map.set(key, {
-        format_id: f.format_id,
-        height,
-        ext: f.ext || 'mp4',
-        filesize: f.filesize || f.filesize_approx || null,
-        label: `${height}p · ${f.ext || 'mp4'}`
-      });
+    if (
+      f.vcodec &&
+      f.vcodec !== 'none'
+    ) {
+      heights.add(height);
     }
   }
 
-  return [...map.values()]
-    .sort((a, b) => b.height - a.height)
+  const sorted = [...heights]
+    .sort((a, b) => b - a)
     .slice(0, 8);
+
+  return sorted.map(height => ({
+    format_id: `q${height}`,
+    height,
+    ext: 'mp4',
+    filesize: null,
+    label: `${height}p · MP4`
+  }));
+}
+
+function qualitySelector(format) {
+  if (!format || format === 'best') {
+    return 'best[ext=mp4][vcodec!=none][acodec!=none]/best[ext=mp4]/best';
+  }
+
+  const match = /^q(\d+)$/.exec(format);
+
+  if (match) {
+    const height = Number(match[1]);
+
+    if (!height || height > 4320) {
+      throw new Error('Geçersiz kalite.');
+    }
+
+    return [
+      `bestvideo[height<=${height}][ext=mp4]+bestaudio[ext=m4a]`,
+      `bestvideo[height<=${height}]+bestaudio`,
+      `best[height<=${height}][ext=mp4]`,
+      `best[height<=${height}]`,
+      'best[ext=mp4]',
+      'best'
+    ].join('/');
+  }
+
+  /*
+   * Eski format_id desteği.
+   */
+  return `${format}/best[ext=mp4][vcodec!=none][acodec!=none]/best[ext=mp4]/best`;
 }
 
 app.get('/api/health', (_req, res) => {
@@ -375,16 +419,19 @@ app.get('/api/download', async (req, res) => {
       'downly.%(ext)s'
     );
 
+    /*
+     * Seçilen kaliteye göre yt-dlp formatı oluştur.
+     */
     const selector =
-      format === 'best'
-        ? 'best[ext=mp4][vcodec!=none][acodec!=none]/best[ext=mp4]/best'
-        : `${format}/best[ext=mp4][vcodec!=none][acodec!=none]/best[ext=mp4]/best`;
+      qualitySelector(format);
 
     const args = [
       '--no-playlist',
       '--no-warnings',
       '-f',
       selector,
+      '--merge-output-format',
+      'mp4',
       '-o',
       template,
       url
@@ -393,6 +440,16 @@ app.get('/api/download', async (req, res) => {
     console.log(
       'DOWNLOAD URL:',
       url
+    );
+
+    console.log(
+      'DOWNLOAD FORMAT:',
+      format
+    );
+
+    console.log(
+      'DOWNLOAD SELECTOR:',
+      selector
     );
 
     await spawnYtdlp(args);
