@@ -34,7 +34,9 @@ const ALLOWED = [
 function platformFor(url) {
   const h = url.hostname.toLowerCase();
 
-  if (h === 'instagram.com' || h.endsWith('.instagram.com')) return 'instagram';
+  if (h === 'instagram.com' || h.endsWith('.instagram.com')) {
+    return 'instagram';
+  }
 
   if (
     h === 'x.com' ||
@@ -45,9 +47,13 @@ function platformFor(url) {
     return 'x';
   }
 
-  if (h === 'tiktok.com' || h.endsWith('.tiktok.com')) return 'tiktok';
+  if (h === 'tiktok.com' || h.endsWith('.tiktok.com')) {
+    return 'tiktok';
+  }
 
-  if (h === 'facebook.com' || h.endsWith('.facebook.com')) return 'facebook';
+  if (h === 'facebook.com' || h.endsWith('.facebook.com')) {
+    return 'facebook';
+  }
 
   if (
     h === 'youtube.com' ||
@@ -310,6 +316,17 @@ async function createBrowserPreview(url, platform, tmpDir, format) {
     'preview.mp4'
   );
 
+  /*
+   * Preview için browser uyumlu bir kaynak seçiyoruz.
+   *
+   * Amaç:
+   * - H.264/AVC video
+   * - AAC audio
+   * - MP4 container
+   *
+   * Download tarafına DOKUNMUYORUZ.
+   */
+
   const selector =
     format === 'best'
       ? 'bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best'
@@ -318,6 +335,7 @@ async function createBrowserPreview(url, platform, tmpDir, format) {
   const args = [
     '--no-playlist',
     '--no-warnings',
+    '--no-part',
     '-f',
     selector,
     '-o',
@@ -355,11 +373,21 @@ async function createBrowserPreview(url, platform, tmpDir, format) {
       err += d.toString();
     });
 
-    p.on('error', error => {
+    p.on('error', async error => {
       console.error(
         'PREVIEW YT-DLP SPAWN ERROR:',
         error
       );
+
+      if (cookieDir) {
+        await rm(
+          cookieDir,
+          {
+            recursive: true,
+            force: true
+          }
+        ).catch(() => {});
+      }
 
       reject(
         new Error('yt-dlp bulunamadı.')
@@ -415,29 +443,70 @@ async function createBrowserPreview(url, platform, tmpDir, format) {
     source
   );
 
+  /*
+   * Web preview için videoyu standart H.264/AAC MP4'e çeviriyoruz.
+   *
+   * En önemli noktalar:
+   * - libx264
+   * - yuv420p
+   * - main profile
+   * - level 4.1
+   * - maksimum 1920x1080
+   * - AAC
+   * - faststart
+   *
+   * Böylece Chrome / Edge / Firefox / Safari tarafında
+   * görüntünün gelmeme ihtimalini ciddi şekilde azaltıyoruz.
+   *
+   * Orijinal / download dosyası DEĞİŞMİYOR.
+   */
+
   await new Promise((resolve, reject) => {
     const args = [
       '-y',
+
       '-i',
       sourceFile,
+
       '-map',
       '0:v:0',
+
       '-map',
       '0:a:0?',
+
+      '-vf',
+      'scale=w=min(1920\\,iw):h=min(1080\\,ih):force_original_aspect_ratio=decrease:force_divisible_by=2',
+
       '-c:v',
       'libx264',
+
       '-preset',
       'veryfast',
+
       '-crf',
       '23',
+
+      '-profile:v',
+      'main',
+
+      '-level:v',
+      '4.1',
+
       '-pix_fmt',
       'yuv420p',
+
       '-c:a',
       'aac',
+
       '-b:a',
       '128k',
+
+      '-ar',
+      '48000',
+
       '-movflags',
       '+faststart',
+
       outputFile
     ];
 
@@ -475,6 +544,10 @@ async function createBrowserPreview(url, platform, tmpDir, format) {
 
     p.on('close', code => {
       if (code === 0) {
+        console.log(
+          'FFMPEG PREVIEW: Browser uyumlu MP4 oluşturuldu.'
+        );
+
         resolve();
       } else {
         console.error(
@@ -531,15 +604,19 @@ app.post('/api/analyze', async (req, res) => {
         info.extractor_key ||
         info.extractor ||
         platform,
+
       title:
         info.title ||
         'İçerik',
+
       thumbnail:
         info.thumbnail ||
         null,
+
       duration:
         info.duration ||
         null,
+
       formats:
         normalizeFormats(info)
     });
@@ -589,6 +666,12 @@ app.get('/api/media', async (req, res) => {
       {
         recursive: true
       }
+    );
+
+    console.log(
+      'MEDIA PREVIEW:',
+      platform,
+      format
     );
 
     const previewFile =
