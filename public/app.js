@@ -203,6 +203,12 @@ function render() {
   $('#duration').textContent =
     duration(data.duration);
 
+  /*
+   * KALİTE SEÇENEKLERİ
+   *
+   * Sunucudan gelen formatlar burada
+   * select kutusuna eklenir.
+   */
   format.innerHTML = '';
 
   const fs = data.formats || [];
@@ -239,7 +245,7 @@ function render() {
 }
 
 format.addEventListener('change', () => {
-  if (player.style.display !== 'none') {
+  if (player && player.style.display !== 'none') {
     player.pause();
     player.removeAttribute('src');
     player.load();
@@ -288,7 +294,12 @@ $('#clearHistory').onclick = () => {
 async function downloadFile() {
   if (!data) return;
 
-  const selected = format.value;
+  /*
+   * Kullanıcının seçtiği kalite.
+   * Örneğin: 1080p format_id, 720p format_id vb.
+   */
+  const selected =
+    format.value || 'best';
 
   download.disabled = true;
 
@@ -366,9 +377,10 @@ async function downloadFile() {
     const a =
       document.createElement('a');
 
-    a.href =
+    const blobUrl =
       URL.createObjectURL(blob);
 
+    a.href = blobUrl;
     a.download = 'downly';
 
     document.body.appendChild(a);
@@ -377,7 +389,7 @@ async function downloadFile() {
 
     a.remove();
 
-    URL.revokeObjectURL(a.href);
+    URL.revokeObjectURL(blobUrl);
 
     progressBar.style.width = '100%';
 
@@ -406,41 +418,33 @@ download.addEventListener(
  * GECE MODU
  *
  * Site varsayılan olarak gece modunda açılır.
- * Kullanıcı ☀ butonuyla açık temaya geçebilir.
- * Tercih localStorage'da saklanır.
+ * Kullanıcı açık temaya geçmediyse gece modu kullanılır.
  */
 
-$('#theme').onclick = () => {
-  document.body.classList.toggle('dark');
+const themeButton = $('#theme');
 
-  const dark = document.body.classList.contains('dark');
+if (themeButton) {
+  themeButton.onclick = () => {
+    document.body.classList.toggle('dark');
 
-  $('#theme').textContent = dark ? '☀' : '☾';
+    const dark =
+      document.body.classList.contains('dark');
 
-  localStorage.setItem(
-    'downly-theme',
-    dark ? 'dark' : 'light'
-  );
-};
+    themeButton.textContent =
+      dark ? '☀' : '☾';
 
-if (localStorage.getItem('downly-theme') !== 'light') {
-  document.body.classList.add('dark');
-  $('#theme').textContent = '☀';
-}
+    localStorage.setItem(
+      'downly-theme',
+      dark ? 'dark' : 'light'
+    );
+  };
 
-  );
-};
-
-/*
- * Daha önce açık tema seçilmediyse
- * varsayılan olarak gece temasını kullan.
- */
-if (
-  localStorage.getItem('downly-theme') !== 'light'
-) {
-  document.body.classList.add('dark');
-
-  $('#theme').textContent = '☀';
+  if (
+    localStorage.getItem('downly-theme') !== 'light'
+  ) {
+    document.body.classList.add('dark');
+    themeButton.textContent = '☀';
+  }
 }
 
 renderHistory();
