@@ -1,397 +1,234 @@
-<!doctype html>
-<html lang="tr">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Dovli — bağlantıyı yapıştır, herkese açık içeriğini kolayca indir.">
-<meta name="theme-color" content="#f7f8f4">
-<title>Dovli — Linki yapıştır, indir</title>
-<link rel="stylesheet" href="/style.css">
-</head>
+<!doctype html> <html lang="tr"> <head> <meta charset="UTF-8"> <meta name="viewport" content="width=device-width,initial-scale=1"> <meta name="description" content="Dovli — Instagram, TikTok, X ve Facebook bağlantılarını analiz et, kaliteyi seç ve herkese açık içerikleri kolayca indir."> <meta name="robots" content="index, follow"> <link rel="canonical" href="https://downly-i812.onrender.com/"> <meta name="theme-color" content="#0d100e"> <meta property="og:title" content="Dovli — Linki yapıştır, indir"> <meta property="og:description" content="Instagram, TikTok, X ve Facebook bağlantılarını analiz et, kaliteyi seç ve indir."> <meta property="og:type" content="website"> <meta property="og:url" content="https://downly-i812.onrender.com/"> <meta property="og:site_name" content="Dovli"> <meta name="twitter:card" content="summary"> <meta name="twitter:title" content="Dovli — Linki yapıştır, indir"> <meta name="twitter:description" content="Bağlantıyı yapıştır, kaliteyi seç ve herkese açık içeriğini kolayca indir."> <title>Dovli — Linki yapıştır, indir</title> <link rel="stylesheet" href="/style.css"> </head> <body class="dark"> <div class="ambient"></div> <header class="topbar"> <a class="brand" href="/"> <span>↓</span>Dovli </a> <nav> <a href="#features">Özellikler</a> <a href="#how">Nasıl çalışır?</a> </nav> <div class="top-actions"> <button id="theme" class="ghost" aria-label="Tema değiştir">☾</button> </div> </header> <main> <section class="hero"> <div class="eyebrow"> Basit · Hızlı · Hesapsız </div> <h1> Linki bırak,<br> <span>gerisini Dovli yapsın.</span> </h1> <p> Instagram, X, TikTok ve Facebook bağlantılarını tek yerde analiz et ve uygun formatı indir. </p> <form id="form" class="search-card">
+<div class="url-row">
 
-<body class="dark">
+  <span class="link-icon">↗</span>
 
-<div class="ambient"></div>
+  <input
+    id="url"
+    type="url"
+    placeholder="https://instagram.com/..."
+    autocomplete="off"
+    required
+  >
 
-<header class="topbar">
-  <a class="brand" href="/">
-    <span>↓</span>Dovli
-  </a>
+  <button id="analyzeBtn">
+    Analiz et <span>→</span>
+  </button>
 
-  <nav>
-    <a href="#features">Özellikler</a>
-    <a href="#how">Nasıl çalışır?</a>
-  </nav>
+</div>
 
-  <div class="top-actions">
-    <button id="theme" class="ghost" aria-label="Tema değiştir">☾</button>
+<div class="supported">
+
+  <span>Desteklenenler</span>
+
+  <b>Instagram</b>
+  <b>TikTok</b>
+  <b>X</b>
+  <b>Facebook</b>
+
+</div>
+
+</form> <div id="status" class="status" aria-live="polite" ></div> </section> <section id="result" class="result hidden"> <div class="result-head">
+<div>
+  <span class="section-kicker">HAZIR</span>
+  <h2>İçerik bulundu</h2>
+</div>
+
+<button
+  id="clear"
+  class="text-btn"
+  type="button"
+>
+  Yeni bağlantı
+</button>
+
+</div> <div class="result-card">
+<div class="preview">
+
+  <img
+    id="thumb"
+    alt="İçerik önizlemesi"
+  >
+
+  <div id="noThumb">
+    Önizleme mevcut değil
   </div>
-</header>
 
-<main>
+  <span
+    id="duration"
+    class="duration"
+  ></span>
 
-<section class="hero">
+</div>
 
-  <div class="eyebrow">
-    Basit · Hızlı · Hesapsız
-  </div>
+<div class="details">
 
-  <h1>
-    Linki bırak,<br>
-    <span>gerisini Dovli yapsın.</span>
-  </h1>
+  <span
+    id="platform"
+    class="platform"
+  ></span>
+
+  <h3 id="title"></h3>
 
   <p>
-    Instagram, X, TikTok ve Facebook bağlantılarını
-    tek yerde analiz et ve uygun formatı indir.
+    İndirmek istediğin kaliteyi seç.
   </p>
 
-  <form id="form" class="search-card">
+  <label for="format">
+    Kalite
+  </label>
 
-    <div class="url-row">
+  <select id="format"></select>
 
-      <span class="link-icon">↗</span>
-
-      <input
-        id="url"
-        type="url"
-        placeholder="https://instagram.com/..."
-        autocomplete="off"
-        required
-      >
-
-      <button id="analyzeBtn">
-        Analiz et <span>→</span>
-      </button>
-
-    </div>
-
-    <div class="supported">
-
-      <span>Desteklenenler</span>
-
-      <b>Instagram</b>
-      <b>TikTok</b>
-      <b>X</b>
-      <b>Facebook</b>
-
-    </div>
-
-  </form>
-
-  <div
-    id="status"
-    class="status"
-    aria-live="polite"
-  ></div>
-
-</section>
-
-
-<section id="result" class="result hidden">
-
-  <div class="result-head">
-
-    <div>
-      <span class="section-kicker">HAZIR</span>
-      <h2>İçerik bulundu</h2>
-    </div>
+  <div class="action-row">
 
     <button
-      id="clear"
-      class="text-btn"
+      id="download"
+      class="download"
       type="button"
     >
-      Yeni bağlantı
+      ↓ Kaydet
     </button>
 
   </div>
 
+  <div
+    id="progressWrap"
+    class="progress-wrap hidden"
+  >
 
-  <div class="result-card">
+    <div class="progress-top">
 
-    <div class="preview">
-
-      <img
-        id="thumb"
-        alt="İçerik önizlemesi"
-      >
-
-      <div id="noThumb">
-        Önizleme mevcut değil
-      </div>
-
-      <span
-        id="duration"
-        class="duration"
-      ></span>
-
-    </div>
-
-
-    <div class="details">
-
-      <span
-        id="platform"
-        class="platform"
-      ></span>
-
-      <h3 id="title"></h3>
-
-      <p>
-        İndirmek istediğin kaliteyi seç.
-      </p>
-
-      <label for="format">
-        Kalite
-      </label>
-
-      <select id="format"></select>
-
-      <div class="action-row">
-
-        <button
-          id="download"
-          class="download"
-          type="button"
-        >
-          ↓ Kaydet
-        </button>
-
-      </div>
-
-
-      <div
-        id="progressWrap"
-        class="progress-wrap hidden"
-      >
-
-        <div class="progress-top">
-
-          <span>
-            İndiriliyor…
-          </span>
-
-          <b id="progressText">
-            0%
-          </b>
-
-        </div>
-
-        <div class="progress">
-          <i id="progressBar"></i>
-        </div>
-
-      </div>
-
-
-      <small>
-        Yalnızca indirme hakkınız olan veya
-        herkese açık içerikleri indirin.
-      </small>
-
-    </div>
-
-  </div>
-
-</section>
-
-
-<section
-  id="history"
-  class="history hidden"
->
-
-  <div class="section-row">
-
-    <div>
-
-      <span class="section-kicker">
-        GEÇMİŞ
+      <span>
+        İndiriliyor…
       </span>
 
-      <h2>
-        Son bağlantılar
-      </h2>
+      <b id="progressText">
+        0%
+      </b>
 
     </div>
 
-    <button
-      id="clearHistory"
-      class="text-btn"
-      type="button"
-    >
-      Temizle
-    </button>
+    <div class="progress">
+      <i id="progressBar"></i>
+    </div>
 
   </div>
 
-  <div
-    id="historyList"
-    class="history-list"
-  ></div>
+  <small>
+    Yalnızca indirme hakkınız olan veya
+    herkese açık içerikleri indirin.
+  </small>
 
-</section>
+</div>
 
-
-<section
-  id="features"
-  class="features"
->
-
-  <article>
-
-    <span>01</span>
-
-    <h3>
-      Tek kutu
-    </h3>
-
-    <p>
-      URL'yi yapıştır.
-      Platformu Dovli tanısın.
-    </p>
-
-  </article>
-
-
-  <article>
-
-    <span>02</span>
-
-    <h3>
-      Rahat seçim
-    </h3>
-
-    <p>
-      Uygun kalite seçeneklerini
-      sade bir listeden seç.
-    </p>
-
-  </article>
-
-
-  <article>
-
-    <span>03</span>
-
-    <h3>
-      Hızlı sonuç
-    </h3>
-
-    <p>
-      Gereksiz ekranlar olmadan
-      doğrudan indir.
-    </p>
-
-  </article>
-
-</section>
-
-
-<section
-  id="how"
-  class="how"
->
+</div> </section> <section id="history" class="history hidden" > <div class="section-row">
+<div>
 
   <span class="section-kicker">
-    NASIL ÇALIŞIR?
+    GEÇMİŞ
   </span>
 
   <h2>
-    Üç adım, hepsi bu.
+    Son bağlantılar
   </h2>
 
-  <div class="steps">
+</div>
 
-    <div>
-      <b>1</b>
-      <span>
-        Bağlantıyı kopyala
-      </span>
-    </div>
+<button
+  id="clearHistory"
+  class="text-btn"
+  type="button"
+>
+  Temizle
+</button>
 
-    <div>
-      <b>2</b>
-      <span>
-        Dovli'ye yapıştır
-      </span>
-    </div>
+</div> <div id="historyList" class="history-list" ></div> </section> <section id="features" class="features" > <article>
+<span>01</span>
 
-    <div>
-      <b>3</b>
-      <span>
-        Kaliteyi seç ve indir
-      </span>
-    </div>
+<h3>
+  Tek kutu
+</h3>
 
-  </div>
+<p>
+  URL'yi yapıştır.
+  Platformu Dovli tanısın.
+</p>
 
-</section>
+</article> <article>
+<span>02</span>
 
+<h3>
+  Rahat seçim
+</h3>
 
-<section class="trust">
+<p>
+  Uygun kalite seçeneklerini
+  sade bir listeden seç.
+</p>
 
-  <div>
+</article> <article>
+<span>03</span>
 
-    <b>🔒</b>
+<h3>
+  Hızlı sonuç
+</h3>
 
-    <span>
-      <strong>
-        Şifre istemiyoruz.
-      </strong>
-      Hesabına giriş yapman gerekmez.
-    </span>
+<p>
+  Gereksiz ekranlar olmadan
+  doğrudan indir.
+</p>
 
-  </div>
-
-
-  <div>
-
-    <b>⚡</b>
-
-    <span>
-      <strong>
-        Gereksiz kalabalık yok.
-      </strong>
-      Sadece ihtiyacın olan akış.
-    </span>
-
-  </div>
-
-
-  <div>
-
-    <b>✓</b>
-
-    <span>
-      <strong>
-        Şeffaf kullanım.
-      </strong>
-      İçerik haklarına saygı göster.
-    </span>
-
-  </div>
-
-</section>
-
-</main>
-
-
-<footer>
-
+</article> </section> <section id="how" class="how" > <span class="section-kicker"> NASIL ÇALIŞIR? </span> <h2> Üç adım, hepsi bu. </h2> <div class="steps">
+<div>
+  <b>1</b>
   <span>
-    © 2026 Dovli tüm hakları saklıdır
+    Bağlantıyı kopyala
   </span>
+</div>
 
+<div>
+  <b>2</b>
   <span>
-    Herkese açık / izinli içerikler için.
+    Dovli'ye yapıştır
   </span>
+</div>
 
-</footer>
+<div>
+  <b>3</b>
+  <span>
+    Kaliteyi seç ve indir
+  </span>
+</div>
 
+</div> </section> <section class="trust"> <div>
+<b>🔒</b>
 
-<script src="/app.js"></script>
+<span>
+  <strong>
+    Şifre istemiyoruz.
+  </strong>
+  Hesabına giriş yapman gerekmez.
+</span>
 
-</body>
-</html>
+</div> <div>
+<b>⚡</b>
+
+<span>
+  <strong>
+    Gereksiz kalabalık yok.
+  </strong>
+  Sadece ihtiyacın olan akış.
+</span>
+
+</div> <div>
+<b>✓</b>
+
+<span>
+  <strong>
+    Şeffaf kullanım.
+  </strong>
+  İçerik haklarına saygı göster.
+</span>
+
+</div> </section> </main> <footer> <span> © 2026 Dovli tüm hakları saklıdır </span> <span> Herkese açık / izinli içerikler için. </span> </footer> <script src="/app.js"></script> </body> </html>
