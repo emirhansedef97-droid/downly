@@ -5,17 +5,24 @@ RUN apt-get update && \
       python3 \
       python3-pip \
       ffmpeg \
-      ca-certificates && \
+      ca-certificates \
+      curl && \
     rm -rf /var/lib/apt/lists/*
 
+# yt-dlp
 RUN python3 -m pip install \
     --break-system-packages \
     --no-cache-dir \
     -U "yt-dlp[default,curl-cffi]"
 
-# YouTube cookie varsa /tmp içine kopyalanır.
-# /etc/secrets salt okunur olduğu için yt-dlp doğrudan
-# Secret File üzerinde çalıştırılmaz.
+# YouTube PO Token Provider plugin
+RUN python3 -m pip install \
+    --break-system-packages \
+    --no-cache-dir \
+    -U bgutil-ytdlp-pot-provider
+
+# YouTube cookie'yi Render'ın read-only Secret Files alanından
+# yazılabilir /tmp alanına kopyalayan wrapper.
 RUN printf '%s\n' \
     '#!/bin/sh' \
     'COOKIE="/etc/secrets/www.youtube.com_cookies.txt"' \
