@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
 import { spawn } from 'node:child_process';
-import { mkdir, rm, stat, readdir, copyFile } from 'node:fs/promises';
+import { mkdir, rm, stat, readdir } from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
@@ -13,8 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const MAX_BODY = '50kb';
 
-const YTDLP = process.env.YTDLP_PATH || '/usr/local/bin/yt-dlp';
-const YOUTUBE_COOKIE_SOURCE = '/etc/secrets/www.youtube.com_cookies.txt';
+const YTDLP = '/usr/local/bin/yt-dlp';
 
 app.use(cors());
 app.use(express.json({ limit: MAX_BODY }));
@@ -34,7 +33,9 @@ const ALLOWED = [
 function platformFor(url) {
   const h = url.hostname.toLowerCase();
 
-  if (h === 'instagram.com' || h.endsWith('.instagram.com')) return 'instagram';
+  if (h === 'instagram.com' || h.endsWith('.instagram.com')) {
+    return 'instagram';
+  }
 
   if (
     h === 'x.com' ||
@@ -45,9 +46,13 @@ function platformFor(url) {
     return 'x';
   }
 
-  if (h === 'tiktok.com' || h.endsWith('.tiktok.com')) return 'tiktok';
+  if (h === 'tiktok.com' || h.endsWith('.tiktok.com')) {
+    return 'tiktok';
+  }
 
-  if (h === 'facebook.com' || h.endsWith('.facebook.com')) return 'facebook';
+  if (h === 'facebook.com' || h.endsWith('.facebook.com')) {
+    return 'facebook';
+  }
 
   if (
     h === 'youtube.com' ||
@@ -61,10 +66,16 @@ function platformFor(url) {
 }
 
 function validateUrl(raw) {
+  const value = String(raw ?? '').trim();
+
+  if (!value) {
+    throw new Error('URL bulunamadı.');
+  }
+
   let u;
 
   try {
-    u = new URL(String(raw).trim());
+    u = new URL(value);
   } catch {
     throw new Error('Geçerli bir URL girin.');
   }
@@ -85,91 +96,63 @@ function validateUrl(raw) {
   return u.toString();
 }
 
-async function prepareYoutubeCookies() {
-  try {
-    const cookieDir = path.join(
-      '/tmp',
-      `downly-cookies-${crypto.randomUUID()}`
-    );
+function cleanError(err) {
+  const s = String(err || '');
 
-    await mkdir(cookieDir, { recursive: true });
-
-    const cookieFile = path.join(
-      cookieDir,
-      'youtube-cookies.txt'
-    );
-
-    await copyFile(
-      YOUTUBE_COOKIE_SOURCE,
-      cookieFile
-    );
-
-    console.log(
-      'YOUTUBE COOKIES: Secret file bulundu ve /tmp içine kopyalandı.'
-    );
-
-    return {
-      cookieFile,
-      cookieDir
-    };
-  } catch (error) {
-    console.log(
-      'YOUTUBE COOKIES: Cookie secret bulunamadı veya okunamadı:',
-      error.message
-    );
-
-    return null;
+  if (/impersonate target|no impersonate target/i.test(s)) {
+    return 'yt-dlp bağlantı bileşeni eksik.';
   }
+
+  if (
+    /login required|rate-limit|not available|empty media response/i.test(s)
+  ) {
+    return 'İçeriğe şu anda erişilemiyor. İçerik herkese açık olmalı ve platform erişimi engellememiş olmalı.';
+  }
+
+  if (/sign in to confirm|not a bot|confirm you.?re not a bot/i.test(s)) {
+    return 'YouTube bu sunucunun isteğini bot doğrulamasına taktı.';
+  }
+
+  if (/unsupported url/i.test(s)) {
+    return 'Bu bağlantı türü desteklenmiyor.';
+  }
+
+  const cleaned = s
+    .split('\n')
+    .map(x => x.trim())
+    .filter(Boolean)
+    .slice(-3)
+    .join(' ');
+
+  return cleaned || 'İçerik alınamadı.';
 }
 
-async function buildYtdlpArgs(args, platform) {
-  if (platform !== 'youtube') {
-    return [...args];
-  }
-
-  const result = await prepareYoutubeCookies();
-
-  const youtubeArgs = [
-    '--extractor-args',
-    'youtube:player_client=web_embedded,web_safari,ios'
-  ];
-
-  if (result) {
-    youtubeArgs.unshift(
-      '--cookies',
-      result.cookieFile
-    );
-  }
-
-  return {
-    args: [
-      ...youtubeArgs,
-      ...args
-    ],
-    cookieDir: result?.cookieDir || null
-  };
-}
-
-async function runYtdlp(args, platform) {
-  const prepared = await buildYtdlpArgs(
-    args,
-    platform
-  );
-
-  const finalArgs =
-    typeof prepared === 'object'
-      ? prepared.args
-      : prepared;
-
-  const cookieDir =
-    typeof prepared === 'object'
-      ? prepared.cookieDir
-      : null;
-
+function runYtdlp(args) {
   return new Promise((resolve, reject) => {
+    if (!Array.isArray(args) || args.length === 0) {
+      reject(new Error('yt-dlp parametreleri oluşturulamadı.'));
+      return;
+    }
+
+    const url = args[args.length - 1];
+
+    if (
+      typeof url !== 'string' ||
+      !/^https?:\/\//i.test(url)
+    ) {
+      reject(new Error('yt-dlp için geçerli URL oluşturulamadı.'));
+      return;
+    }
+
+    console.log(
+      'YT-DLP RUN:',
+      YTDLP,
+      args.join(' ')
+    );
+
     const p = spawn(
       YTDLP,
-      finalArgs,
+      args,
       {
         stdio: ['ignore', 'pipe', 'pipe']
       }
@@ -186,50 +169,23 @@ async function runYtdlp(args, platform) {
       err += d.toString();
     });
 
-    p.on('error', async error => {
-      console.error(
-        'YT-DLP SPAWN ERROR:',
-        error
-      );
-
-      if (cookieDir) {
-        await rm(
-          cookieDir,
-          {
-            recursive: true,
-            force: true
-          }
-        ).catch(() => {});
-      }
+    p.on('error', error => {
+      console.error('YT-DLP SPAWN ERROR:', error);
 
       reject(
         new Error('yt-dlp çalıştırılamadı.')
       );
     });
 
-    p.on('close', async code => {
-      if (cookieDir) {
-        await rm(
-          cookieDir,
-          {
-            recursive: true,
-            force: true
-          }
-        ).catch(() => {});
-      }
-
+    p.on('close', code => {
       if (code === 0) {
         resolve(out);
       } else {
-        console.error(
-          'YT-DLP ERROR:',
-          err
-        );
+        console.error('YT-DLP ERROR:', err);
 
         reject(
           new Error(
-            cleanError(err) ||
-            'İçerik alınamadı.'
+            cleanError(err)
           )
         );
       }
@@ -237,37 +193,65 @@ async function runYtdlp(args, platform) {
   });
 }
 
-function cleanError(err) {
-  const s = String(err);
+function spawnYtdlp(args) {
+  return new Promise((resolve, reject) => {
+    if (!Array.isArray(args) || args.length === 0) {
+      reject(new Error('yt-dlp parametreleri oluşturulamadı.'));
+      return;
+    }
 
-  if (
-    /impersonate target|no impersonate target/i.test(s)
-  ) {
-    return 'yt-dlp bağlantı bileşeni eksik.';
-  }
+    const url = args[args.length - 1];
 
-  if (
-    /login required|rate-limit|not available|empty media response/i.test(s)
-  ) {
-    return 'İçeriğe şu anda erişilemiyor. İçerik herkese açık olmalı ve platform erişimi engellememiş olmalı.';
-  }
+    if (
+      typeof url !== 'string' ||
+      !/^https?:\/\//i.test(url)
+    ) {
+      reject(new Error('yt-dlp için geçerli URL oluşturulamadı.'));
+      return;
+    }
 
-  if (
-    /sign in to confirm|not a bot|confirm you.?re not a bot/i.test(s)
-  ) {
-    return 'YouTube bu sunucunun isteğini bot doğrulamasına taktı.';
-  }
+    console.log(
+      'YT-DLP SPAWN:',
+      YTDLP,
+      args.join(' ')
+    );
 
-  if (/unsupported url/i.test(s)) {
-    return 'Bu bağlantı türü desteklenmiyor.';
-  }
+    const p = spawn(
+      YTDLP,
+      args,
+      {
+        stdio: ['ignore', 'ignore', 'pipe']
+      }
+    );
 
-  return s
-    .split('\n')
-    .map(x => x.trim())
-    .filter(Boolean)
-    .slice(-3)
-    .join(' ');
+    let err = '';
+
+    p.stderr.on('data', d => {
+      err += d.toString();
+    });
+
+    p.on('error', error => {
+      console.error('YT-DLP SPAWN ERROR:', error);
+
+      reject(
+        new Error('yt-dlp bulunamadı.')
+      );
+    });
+
+    p.on('close', code => {
+      if (code === 0) {
+        resolve();
+      } else {
+        console.error('YT-DLP ERROR:', err);
+
+        reject(
+          new Error(
+            cleanError(err)
+          )
+        );
+      }
+    });
+  });
 }
 
 function normalizeFormats(info) {
@@ -299,7 +283,7 @@ function normalizeFormats(info) {
     .slice(0, 8);
 }
 
-async function createBrowserPreview(url, platform, tmpDir, format) {
+async function createBrowserPreview(url, tmpDir, format) {
   const sourceTemplate = path.join(
     tmpDir,
     'source.%(ext)s'
@@ -325,75 +309,7 @@ async function createBrowserPreview(url, platform, tmpDir, format) {
     url
   ];
 
-  const prepared = await buildYtdlpArgs(
-    args,
-    platform
-  );
-
-  const finalArgs =
-    typeof prepared === 'object'
-      ? prepared.args
-      : prepared;
-
-  const cookieDir =
-    typeof prepared === 'object'
-      ? prepared.cookieDir
-      : null;
-
-  await new Promise((resolve, reject) => {
-    const p = spawn(
-      YTDLP,
-      finalArgs,
-      {
-        stdio: ['ignore', 'ignore', 'pipe']
-      }
-    );
-
-    let err = '';
-
-    p.stderr.on('data', d => {
-      err += d.toString();
-    });
-
-    p.on('error', error => {
-      console.error(
-        'PREVIEW YT-DLP SPAWN ERROR:',
-        error
-      );
-
-      reject(
-        new Error('yt-dlp bulunamadı.')
-      );
-    });
-
-    p.on('close', async code => {
-      if (cookieDir) {
-        await rm(
-          cookieDir,
-          {
-            recursive: true,
-            force: true
-          }
-        ).catch(() => {});
-      }
-
-      if (code === 0) {
-        resolve();
-      } else {
-        console.error(
-          'PREVIEW YT-DLP ERROR:',
-          err
-        );
-
-        reject(
-          new Error(
-            cleanError(err) ||
-            'Önizleme kaynağı oluşturulamadı.'
-          )
-        );
-      }
-    });
-  });
+  await spawnYtdlp(args);
 
   const files = await readdir(tmpDir);
 
@@ -416,39 +332,48 @@ async function createBrowserPreview(url, platform, tmpDir, format) {
   );
 
   await new Promise((resolve, reject) => {
-    const args = [
+    const ffmpegArgs = [
       '-y',
       '-i',
       sourceFile,
+
       '-map',
       '0:v:0',
       '-map',
       '0:a:0?',
+
       '-c:v',
       'libx264',
+
       '-preset',
       'veryfast',
+
       '-crf',
       '23',
+
       '-pix_fmt',
       'yuv420p',
+
       '-c:a',
       'aac',
+
       '-b:a',
       '128k',
+
       '-movflags',
       '+faststart',
+
       outputFile
     ];
 
     console.log(
       'FFMPEG PREVIEW:',
-      args.join(' ')
+      ffmpegArgs.join(' ')
     );
 
     const p = spawn(
       'ffmpeg',
-      args,
+      ffmpegArgs,
       {
         stdio: ['ignore', 'ignore', 'pipe']
       }
@@ -467,9 +392,7 @@ async function createBrowserPreview(url, platform, tmpDir, format) {
       );
 
       reject(
-        new Error(
-          'ffmpeg çalıştırılamadı.'
-        )
+        new Error('ffmpeg çalıştırılamadı.')
       );
     });
 
@@ -505,41 +428,48 @@ app.get('/api/health', (_req, res) => {
 app.post('/api/analyze', async (req, res) => {
   try {
     const url = validateUrl(
-      req.body?.url || ''
+      req.body?.url
     );
 
     const platform = platformFor(
       new URL(url)
     );
 
-    const raw = await runYtdlp(
-      [
-        '--dump-single-json',
-        '--no-playlist',
-        '--skip-download',
-        '--no-warnings',
-        url
-      ],
-      platform
+    console.log(
+      'ANALYZE URL:',
+      url
     );
+
+    const raw = await runYtdlp([
+      '--dump-single-json',
+      '--no-playlist',
+      '--skip-download',
+      '--no-warnings',
+      url
+    ]);
 
     const info = JSON.parse(raw);
 
     res.json({
       ok: true,
+
       platform:
         info.extractor_key ||
         info.extractor ||
         platform,
+
       title:
         info.title ||
         'İçerik',
+
       thumbnail:
         info.thumbnail ||
         null,
+
       duration:
         info.duration ||
         null,
+
       formats:
         normalizeFormats(info)
     });
@@ -561,14 +491,11 @@ app.get('/api/media', async (req, res) => {
 
   try {
     const url = validateUrl(
-      req.query.url || ''
+      req.query?.url
     );
 
-    const parsed = new URL(url);
-    const platform = platformFor(parsed);
-
     const format = String(
-      req.query.format || 'best'
+      req.query?.format || 'best'
     );
 
     if (
@@ -591,10 +518,14 @@ app.get('/api/media', async (req, res) => {
       }
     );
 
+    console.log(
+      'MEDIA URL:',
+      url
+    );
+
     const previewFile =
       await createBrowserPreview(
         url,
-        platform,
         tmpDir,
         format
       );
@@ -664,14 +595,11 @@ app.get('/api/download', async (req, res) => {
 
   try {
     const url = validateUrl(
-      req.query.url || ''
+      req.query?.url
     );
 
-    const parsed = new URL(url);
-    const platform = platformFor(parsed);
-
     const format = String(
-      req.query.format || 'best'
+      req.query?.format || 'best'
     );
 
     if (
@@ -714,91 +642,12 @@ app.get('/api/download', async (req, res) => {
       url
     ];
 
-    const prepared = await buildYtdlpArgs(
-      args,
-      platform
+    console.log(
+      'DOWNLOAD URL:',
+      url
     );
 
-    const finalArgs =
-      typeof prepared === 'object'
-        ? prepared.args
-        : prepared;
-
-    const cookieDir =
-      typeof prepared === 'object'
-        ? prepared.cookieDir
-        : null;
-
-    await new Promise(
-      (resolve, reject) => {
-        const p = spawn(
-          YTDLP,
-          finalArgs,
-          {
-            stdio: [
-              'ignore',
-              'ignore',
-              'pipe'
-            ]
-          }
-        );
-
-        let err = '';
-
-        p.stderr.on(
-          'data',
-          d => {
-            err += d.toString();
-          }
-        );
-
-        p.on(
-          'error',
-          () => {
-            reject(
-              new Error(
-                'yt-dlp bulunamadı.'
-              )
-            );
-          }
-        );
-
-        p.on(
-          'close',
-          async code => {
-            if (cookieDir) {
-              await rm(
-                cookieDir,
-                {
-                  recursive: true,
-                  force: true
-                }
-              ).catch(() => {});
-            }
-
-            if (code === 0) {
-              resolve();
-            } else {
-              reject(
-                new Error(
-                  cleanError(err) ||
-                  'İçerik indirilemedi.'
-                )
-              );
-            }
-          }
-        );
-
-        req.on(
-          'close',
-          () => {
-            if (!res.headersSent) {
-              p.kill('SIGTERM');
-            }
-          }
-        );
-      }
-    );
+    await spawnYtdlp(args);
 
     const files =
       await readdir(tmpDir);
