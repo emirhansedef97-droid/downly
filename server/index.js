@@ -64,12 +64,27 @@ function buildYtdlpArgs(args, platform) {
 
 function runYtdlp(args, platform) {
   return new Promise((resolve, reject) => {
-    const p = spawn(YTDLP, buildYtdlpArgs(args, platform), { stdio: ['ignore', 'pipe', 'pipe'] });
+    const p = spawn(YTDLP, buildYtdlpArgs(args, platform), {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
     let out = '', err = '';
+
     p.stdout.on('data', d => out += d);
     p.stderr.on('data', d => err += d);
-    p.on('error', () => reject(new Error('yt-dlp bulunamadı. Önce setup.bat dosyasını çalıştırın.')));
-    p.on('close', code => code === 0 ? resolve(out) : reject(new Error(cleanError(err) || 'İçerik alınamadı.')));
+
+    p.on('error', () => {
+      reject(new Error('yt-dlp bulunamadı. Önce setup.bat dosyasını çalıştırın.'));
+    });
+
+    p.on('close', code => {
+      if (code === 0) {
+        resolve(out);
+      } else {
+        console.error('YT-DLP ERROR:', err);
+        reject(new Error(cleanError(err) || 'İçerik alınamadı.'));
+      }
+    });
   });
 }
 
