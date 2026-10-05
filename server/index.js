@@ -260,7 +260,7 @@ app.get('/api/media', async (req, res) => {
       'preview.%(ext)s'
     );
 
-    const selector =
+  const selector =
       format === 'best'
         ? 'best[ext=mp4][vcodec!=none][acodec!=none]/best[ext=mp4]/best'
         : `${format}/best[ext=mp4][vcodec!=none][acodec!=none]/best[ext=mp4]/best`;
