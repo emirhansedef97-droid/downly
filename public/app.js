@@ -1,5 +1,8 @@
 const $ = s => document.querySelector(s);
 
+const player = $('#player');
+const previewBtn = $('#previewBtn');
+
 const form = $('#form');
 const url = $('#url');
 const status = $('#status');
@@ -10,6 +13,7 @@ const platform = $('#platform');
 const title = $('#title');
 const format = $('#format');
 const download = $('#download');
+
 const progressWrap = $('#progressWrap');
 const progressBar = $('#progressBar');
 const progressText = $('#progressText');
@@ -20,7 +24,9 @@ const historyKey = 'downly-history-v1';
 
 function getHistory() {
   try {
-    return JSON.parse(localStorage.getItem(historyKey) || '[]');
+    return JSON.parse(
+      localStorage.getItem(historyKey) || '[]'
+    );
   } catch {
     return [];
   }
@@ -32,7 +38,11 @@ function saveHistory(item) {
     ...getHistory().filter(x => x.url !== item.url)
   ].slice(0, 8);
 
-  localStorage.setItem(historyKey, JSON.stringify(h));
+  localStorage.setItem(
+    historyKey,
+    JSON.stringify(h)
+  );
+
   renderHistory();
 }
 
@@ -53,24 +63,28 @@ function renderHistory() {
         <strong>${escapeHtml(x.title || x.url)}</strong>
         <span>${escapeHtml(x.platform || 'Bağlantı')}</span>
       </div>
-      <button data-history="${i}">Tekrar analiz et</button>
+      <button data-history="${i}">
+        Tekrar analiz et
+      </button>
     </div>
   `).join('');
 
-  list.querySelectorAll('[data-history]').forEach(b => {
-    b.onclick = () => {
-      const x = h[Number(b.dataset.history)];
+  list
+    .querySelectorAll('[data-history]')
+    .forEach(b => {
+      b.onclick = () => {
+        const x = h[Number(b.dataset.history)];
 
-      url.value = x.url;
+        url.value = x.url;
 
-      window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-      });
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
 
-      form.requestSubmit();
-    };
-  });
+        form.requestSubmit();
+      };
+    });
 }
 
 function escapeHtml(s) {
@@ -182,6 +196,10 @@ function render() {
     noThumb.style.display = 'block';
   }
 
+  player.removeAttribute('src');
+  player.load();
+  player.style.display = 'none';
+
   $('#duration').textContent =
     duration(data.duration);
 
@@ -191,11 +209,13 @@ function render() {
 
   const options = fs.length
     ? fs
-    : [{
-        format_id: 'best',
-        label: 'En iyi kalite · MP4',
-        ext: 'mp4'
-      }];
+    : [
+        {
+          format_id: 'best',
+          label: 'En iyi kalite · MP4',
+          ext: 'mp4'
+        }
+      ];
 
   options.forEach(f => {
     const o = document.createElement('option');
@@ -218,28 +238,64 @@ function render() {
   progressWrap.classList.add('hidden');
 }
 
+format.addEventListener('change', () => {
+  if (player.style.display !== 'none') {
+    player.pause();
+    player.removeAttribute('src');
+    player.load();
+  }
+});
+
+if (previewBtn) {
+  previewBtn.addEventListener('click', () => {
+    if (!data) return;
+
+    const selected =
+      format.value || 'best';
+
+    player.src =
+      `/api/media?url=${encodeURIComponent(data.url)}&format=${encodeURIComponent(selected)}`;
+
+    player.style.display = 'block';
+
+    player.play().catch(() => {});
+
+    status.textContent =
+      'Video tarayıcı içinde hazırlandı.';
+  });
+}
+
 $('#clear').onclick = () => {
   result.classList.add('hidden');
+
   status.textContent = '';
+
+  if (player) {
+    player.pause();
+    player.removeAttribute('src');
+    player.load();
+  }
+
   url.focus();
 };
 
 $('#clearHistory').onclick = () => {
   localStorage.removeItem(historyKey);
+
   renderHistory();
 };
 
 async function downloadFile() {
   if (!data) return;
 
-  const selected =
-    format.value || 'best';
+  const selected = format.value;
 
   download.disabled = true;
 
   progressWrap.classList.remove('hidden');
 
   progressBar.style.width = '0%';
+
   progressText.textContent = '0%';
 
   try {
@@ -283,13 +339,12 @@ async function downloadFile() {
       received += value.byteLength;
 
       if (total) {
-        const pct =
-          Math.min(
-            100,
-            Math.round(
-              received / total * 100
-            )
-          );
+        const pct = Math.min(
+          100,
+          Math.round(
+            received / total * 100
+          )
+        );
 
         progressBar.style.width =
           pct + '%';
@@ -303,9 +358,7 @@ async function downloadFile() {
       chunks,
       {
         type:
-          res.headers.get(
-            'content-type'
-          ) ||
+          res.headers.get('content-type') ||
           'application/octet-stream'
       }
     );
@@ -313,10 +366,9 @@ async function downloadFile() {
     const a =
       document.createElement('a');
 
-    const objectUrl =
+    a.href =
       URL.createObjectURL(blob);
 
-    a.href = objectUrl;
     a.download = 'downly';
 
     document.body.appendChild(a);
@@ -325,10 +377,9 @@ async function downloadFile() {
 
     a.remove();
 
-    URL.revokeObjectURL(objectUrl);
+    URL.revokeObjectURL(a.href);
 
-    progressBar.style.width =
-      '100%';
+    progressBar.style.width = '100%';
 
     progressText.textContent =
       'Tamamlandı';
@@ -340,9 +391,7 @@ async function downloadFile() {
       err.message ||
       'İndirme başarısız.';
 
-    progressWrap.classList.add(
-      'hidden'
-    );
+    progressWrap.classList.add('hidden');
   } finally {
     download.disabled = false;
   }
@@ -352,6 +401,14 @@ download.addEventListener(
   'click',
   downloadFile
 );
+
+/*
+ * GECE MODU
+ *
+ * Site varsayılan olarak gece modunda açılır.
+ * Kullanıcı ☀ butonuyla açık temaya geçebilir.
+ * Tercih localStorage'da saklanır.
+ */
 
 $('#theme').onclick = () => {
   document.body.classList.toggle('dark');
@@ -368,10 +425,15 @@ $('#theme').onclick = () => {
   );
 };
 
+/*
+ * Daha önce açık tema seçilmediyse
+ * varsayılan olarak gece temasını kullan.
+ */
 if (
-  localStorage.getItem('downly-theme') === 'dark'
+  localStorage.getItem('downly-theme') !== 'light'
 ) {
   document.body.classList.add('dark');
+
   $('#theme').textContent = '☀';
 }
 
