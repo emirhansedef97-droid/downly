@@ -57,9 +57,9 @@ function validateUrl(raw) {
 function buildYtdlpArgs(args, platform) {
   const base = [...YTDLP_BASE];
   return [...base, ...args];
-}
 
-}
+
+
 
 function runYtdlp(args, platform) {
   return new Promise((resolve, reject) => {
