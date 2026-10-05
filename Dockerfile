@@ -13,16 +13,19 @@ RUN python3 -m pip install \
     --no-cache-dir \
     -U "yt-dlp[default,curl-cffi]"
 
-# YouTube cookie varsa otomatik olarak yt-dlp'ye verir.
-# index.js'e dokunmuyoruz.
+# YouTube cookie varsa /tmp içine kopyalanır.
+# /etc/secrets salt okunur olduğu için yt-dlp doğrudan
+# Secret File üzerinde çalıştırılmaz.
 RUN printf '%s\n' \
     '#!/bin/sh' \
     'COOKIE="/etc/secrets/www.youtube.com_cookies.txt"' \
+    'TEMP_COOKIE="/tmp/downly-youtube-cookies.txt"' \
     'for arg in "$@"; do' \
     '  case "$arg" in' \
     '    *youtube.com*|*youtu.be*)' \
     '      if [ -f "$COOKIE" ]; then' \
-    '        exec /usr/local/bin/yt-dlp --cookies "$COOKIE" "$@"' \
+    '        cp "$COOKIE" "$TEMP_COOKIE"' \
+    '        exec /usr/local/bin/yt-dlp --cookies "$TEMP_COOKIE" "$@"' \
     '      fi' \
     '      break' \
     '      ;;' \
