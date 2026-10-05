@@ -1,8 +1,5 @@
 const $ = s => document.querySelector(s);
 
-const player = $('#player');
-const previewBtn = $('#previewBtn');
-
 const form = $('#form');
 const url = $('#url');
 const status = $('#status');
@@ -13,7 +10,6 @@ const platform = $('#platform');
 const title = $('#title');
 const format = $('#format');
 const download = $('#download');
-
 const progressWrap = $('#progressWrap');
 const progressBar = $('#progressBar');
 const progressText = $('#progressText');
@@ -24,9 +20,7 @@ const historyKey = 'downly-history-v1';
 
 function getHistory() {
   try {
-    return JSON.parse(
-      localStorage.getItem(historyKey) || '[]'
-    );
+    return JSON.parse(localStorage.getItem(historyKey) || '[]');
   } catch {
     return [];
   }
@@ -38,11 +32,7 @@ function saveHistory(item) {
     ...getHistory().filter(x => x.url !== item.url)
   ].slice(0, 8);
 
-  localStorage.setItem(
-    historyKey,
-    JSON.stringify(h)
-  );
-
+  localStorage.setItem(historyKey, JSON.stringify(h));
   renderHistory();
 }
 
@@ -63,28 +53,24 @@ function renderHistory() {
         <strong>${escapeHtml(x.title || x.url)}</strong>
         <span>${escapeHtml(x.platform || 'Bağlantı')}</span>
       </div>
-      <button data-history="${i}">
-        Tekrar analiz et
-      </button>
+      <button data-history="${i}">Tekrar analiz et</button>
     </div>
   `).join('');
 
-  list
-    .querySelectorAll('[data-history]')
-    .forEach(b => {
-      b.onclick = () => {
-        const x = h[Number(b.dataset.history)];
+  list.querySelectorAll('[data-history]').forEach(b => {
+    b.onclick = () => {
+      const x = h[Number(b.dataset.history)];
 
-        url.value = x.url;
+      url.value = x.url;
 
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth'
-        });
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
 
-        form.requestSubmit();
-      };
-    });
+      form.requestSubmit();
+    };
+  });
 }
 
 function escapeHtml(s) {
@@ -196,32 +182,20 @@ function render() {
     noThumb.style.display = 'block';
   }
 
-  player.removeAttribute('src');
-  player.load();
-  player.style.display = 'none';
-
   $('#duration').textContent =
     duration(data.duration);
 
-  /*
-   * KALİTE SEÇENEKLERİ
-   *
-   * Sunucudan gelen formatlar burada
-   * select kutusuna eklenir.
-   */
   format.innerHTML = '';
 
   const fs = data.formats || [];
 
   const options = fs.length
     ? fs
-    : [
-        {
-          format_id: 'best',
-          label: 'En iyi kalite · MP4',
-          ext: 'mp4'
-        }
-      ];
+    : [{
+        format_id: 'best',
+        label: 'En iyi kalite · MP4',
+        ext: 'mp4'
+      }];
 
   options.forEach(f => {
     const o = document.createElement('option');
@@ -244,60 +218,20 @@ function render() {
   progressWrap.classList.add('hidden');
 }
 
-format.addEventListener('change', () => {
-  if (player && player.style.display !== 'none') {
-    player.pause();
-    player.removeAttribute('src');
-    player.load();
-  }
-});
-
-if (previewBtn) {
-  previewBtn.addEventListener('click', () => {
-    if (!data) return;
-
-    const selected =
-      format.value || 'best';
-
-    player.src =
-      `/api/media?url=${encodeURIComponent(data.url)}&format=${encodeURIComponent(selected)}`;
-
-    player.style.display = 'block';
-
-    player.play().catch(() => {});
-
-    status.textContent =
-      'Video tarayıcı içinde hazırlandı.';
-  });
-}
-
 $('#clear').onclick = () => {
   result.classList.add('hidden');
-
   status.textContent = '';
-
-  if (player) {
-    player.pause();
-    player.removeAttribute('src');
-    player.load();
-  }
-
   url.focus();
 };
 
 $('#clearHistory').onclick = () => {
   localStorage.removeItem(historyKey);
-
   renderHistory();
 };
 
 async function downloadFile() {
   if (!data) return;
 
-  /*
-   * Kullanıcının seçtiği kalite.
-   * Örneğin: 1080p format_id, 720p format_id vb.
-   */
   const selected =
     format.value || 'best';
 
@@ -306,7 +240,6 @@ async function downloadFile() {
   progressWrap.classList.remove('hidden');
 
   progressBar.style.width = '0%';
-
   progressText.textContent = '0%';
 
   try {
@@ -350,12 +283,13 @@ async function downloadFile() {
       received += value.byteLength;
 
       if (total) {
-        const pct = Math.min(
-          100,
-          Math.round(
-            received / total * 100
-          )
-        );
+        const pct =
+          Math.min(
+            100,
+            Math.round(
+              received / total * 100
+            )
+          );
 
         progressBar.style.width =
           pct + '%';
@@ -369,7 +303,9 @@ async function downloadFile() {
       chunks,
       {
         type:
-          res.headers.get('content-type') ||
+          res.headers.get(
+            'content-type'
+          ) ||
           'application/octet-stream'
       }
     );
@@ -377,10 +313,10 @@ async function downloadFile() {
     const a =
       document.createElement('a');
 
-    const blobUrl =
+    const objectUrl =
       URL.createObjectURL(blob);
 
-    a.href = blobUrl;
+    a.href = objectUrl;
     a.download = 'downly';
 
     document.body.appendChild(a);
@@ -389,9 +325,10 @@ async function downloadFile() {
 
     a.remove();
 
-    URL.revokeObjectURL(blobUrl);
+    URL.revokeObjectURL(objectUrl);
 
-    progressBar.style.width = '100%';
+    progressBar.style.width =
+      '100%';
 
     progressText.textContent =
       'Tamamlandı';
@@ -403,7 +340,9 @@ async function downloadFile() {
       err.message ||
       'İndirme başarısız.';
 
-    progressWrap.classList.add('hidden');
+    progressWrap.classList.add(
+      'hidden'
+    );
   } finally {
     download.disabled = false;
   }
@@ -414,37 +353,26 @@ download.addEventListener(
   downloadFile
 );
 
-/*
- * GECE MODU
- *
- * Site varsayılan olarak gece modunda açılır.
- * Kullanıcı açık temaya geçmediyse gece modu kullanılır.
- */
+$('#theme').onclick = () => {
+  document.body.classList.toggle('dark');
 
-const themeButton = $('#theme');
+  const dark =
+    document.body.classList.contains('dark');
 
-if (themeButton) {
-  themeButton.onclick = () => {
-    document.body.classList.toggle('dark');
+  $('#theme').textContent =
+    dark ? '☀' : '☾';
 
-    const dark =
-      document.body.classList.contains('dark');
+  localStorage.setItem(
+    'downly-theme',
+    dark ? 'dark' : 'light'
+  );
+};
 
-    themeButton.textContent =
-      dark ? '☀' : '☾';
-
-    localStorage.setItem(
-      'downly-theme',
-      dark ? 'dark' : 'light'
-    );
-  };
-
-  if (
-    localStorage.getItem('downly-theme') !== 'light'
-  ) {
-    document.body.classList.add('dark');
-    themeButton.textContent = '☀';
-  }
+if (
+  localStorage.getItem('downly-theme') === 'dark'
+) {
+  document.body.classList.add('dark');
+  $('#theme').textContent = '☀';
 }
 
 renderHistory();
