@@ -3,50 +3,65 @@ const $ = s => document.querySelector(s);
 const player = $('#player');
 const previewBtn = $('#previewBtn');
 
-const form=$('#form'), url=$('#url'), status=$('#status'), result=$('#result'), thumb=$('#thumb'), noThumb=$('#noThumb'), platform=$('#platform'), title=$('#title'), format=$('#format'), download=$('#download'), progressWrap=$('#progressWrap'), progressBar=$('#progressBar'), progressText=$('#progressText');
+const form = $('#form');
+const url = $('#url');
+const status = $('#status');
+const result = $('#result');
+const thumb = $('#thumb');
+const noThumb = $('#noThumb');
+const platform = $('#platform');
+const title = $('#title');
+const format = $('#format');
+const download = $('#download');
 
-let data=null;
+const progressWrap = $('#progressWrap');
+const progressBar = $('#progressBar');
+const progressText = $('#progressText');
 
-const historyKey='downly-history-v1';
+let data = null;
 
-function getHistory(){
-  try{
-    return JSON.parse(localStorage.getItem(historyKey)||'[]')
-  }catch{
-    return[]
+const historyKey = 'downly-history-v1';
+
+function getHistory() {
+  try {
+    return JSON.parse(
+      localStorage.getItem(historyKey) || '[]'
+    );
+  } catch {
+    return [];
   }
 }
 
-function saveHistory(item){
-  const h=[
+function saveHistory(item) {
+  const h = [
     item,
-    ...getHistory().filter(x=>x.url!==item.url)
-  ].slice(0,8);
+    ...getHistory().filter(x => x.url !== item.url)
+  ].slice(0, 8);
 
   localStorage.setItem(
     historyKey,
     JSON.stringify(h)
   );
 
-  renderHistory()
+  renderHistory();
 }
 
-function renderHistory(){
-  const list=$('#historyList'),
-        h=getHistory();
+function renderHistory() {
+  const list = $('#historyList');
+  const h = getHistory();
 
-  if(!h.length){
+  if (!h.length) {
     $('#history').classList.add('hidden');
-    return
+    return;
   }
 
   $('#history').classList.remove('hidden');
 
-  list.innerHTML=h.map((x,i)=>`
+  list.innerHTML = h.map((x, i) => `
     <div class="history-item">
       <div class="history-meta">
-        <strong>${escapeHtml(x.title||x.url)}</strong>
-        <span>${escapeHtml(x.platform||'Bağlantı')}</span>
+        <strong>${escapeHtml(x.title || x.url)}</strong>
+        <span>${escapeHtml(x.platform || 'Bağlantı')}</span>
       </div>
       <button data-history="${i}">
         Tekrar analiz et
@@ -56,351 +71,334 @@ function renderHistory(){
 
   list
     .querySelectorAll('[data-history]')
-    .forEach(b=>b.onclick=()=>{
-      const x=h[Number(b.dataset.history)];
+    .forEach(b => {
+      b.onclick = () => {
+        const x = h[Number(b.dataset.history)];
 
-      url.value=x.url;
+        url.value = x.url;
 
-      window.scrollTo({
-        top:0,
-        behavior:'smooth'
-      });
+        window.scrollTo({
+          top: 0,
+          behavior: 'smooth'
+        });
 
-      form.requestSubmit()
-    })
+        form.requestSubmit();
+      };
+    });
 }
 
-function escapeHtml(s){
+function escapeHtml(s) {
   return String(s).replace(
     /[&<>'"]/g,
-    c=>({
-      '&':'&amp;',
-      '<':'&lt;',
-      '>':'&gt;',
-      "'":'&#39;',
-      '"':'&quot;'
+    c => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
     }[c])
-  )
+  );
 }
 
-function bytes(n){
-  if(!n)return'';
+function bytes(n) {
+  if (!n) return '';
 
-  const u=['B','KB','MB','GB'];
-  let i=0;
+  const u = ['B', 'KB', 'MB', 'GB'];
+  let i = 0;
 
-  while(n>=1024&&i<3){
-    n/=1024;
-    i++
+  while (n >= 1024 && i < 3) {
+    n /= 1024;
+    i++;
   }
 
-  return`${n.toFixed(i?1:0)} ${u[i]}`
+  return `${n.toFixed(i ? 1 : 0)} ${u[i]}`;
 }
 
-function duration(s){
-  if(!s)return'';
+function duration(s) {
+  if (!s) return '';
 
-  s=Math.round(s);
+  s = Math.round(s);
 
-  const m=Math.floor(s/60),
-        sec=String(s%60).padStart(2,'0');
+  const m = Math.floor(s / 60);
+  const sec = String(s % 60).padStart(2, '0');
 
-  return`${m}:${sec}`
+  return `${m}:${sec}`;
 }
 
-form.addEventListener('submit',async e=>{
+form.addEventListener('submit', async e => {
   e.preventDefault();
 
-  const value=url.value.trim();
+  const value = url.value.trim();
 
-  if(!value)return;
+  if (!value) return;
 
-  status.textContent='İçerik analiz ediliyor…';
+  status.textContent = 'İçerik analiz ediliyor…';
 
   result.classList.add('hidden');
 
-  $('#analyzeBtn').disabled=true;
+  $('#analyzeBtn').disabled = true;
 
-  try{
-    const r=await fetch('/api/analyze',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json'
+  try {
+    const r = await fetch('/api/analyze', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
       },
-      body:JSON.stringify({
-        url:value
+      body: JSON.stringify({
+        url: value
       })
     });
 
-    const j=await r.json();
+    const j = await r.json();
 
-    if(!r.ok||!j.ok)
+    if (!r.ok || !j.ok) {
       throw new Error(
-        j.error||'Analiz başarısız.'
+        j.error || 'Analiz başarısız.'
       );
+    }
 
-    data={
+    data = {
       ...j,
-      url:value
+      url: value
     };
 
     render();
 
     saveHistory({
-      url:value,
-      title:j.title,
-      platform:j.platform
+      url: value,
+      title: j.title,
+      platform: j.platform
     });
 
-    status.textContent=
+    status.textContent =
       'Hazır. İndirmek istediğin kaliteyi seç.';
 
-  }catch(err){
-
-    status.textContent=
-      err.message||'Bir hata oluştu.';
-
-  }finally{
-
-    $('#analyzeBtn').disabled=false;
-
+  } catch (err) {
+    status.textContent =
+      err.message || 'Bir hata oluştu.';
+  } finally {
+    $('#analyzeBtn').disabled = false;
   }
 });
 
-function render(){
+function render() {
+  platform.textContent = data.platform;
 
-  platform.textContent=data.platform;
+  title.textContent =
+    data.title || 'İçerik';
 
-  title.textContent=data.title||'İçerik';
-
-  if(data.thumbnail){
-
-    thumb.src=data.thumbnail;
-    thumb.style.display='block';
-    noThumb.style.display='none';
-
-  }else{
-
+  if (data.thumbnail) {
+    thumb.src = data.thumbnail;
+    thumb.style.display = 'block';
+    noThumb.style.display = 'none';
+  } else {
     thumb.removeAttribute('src');
-    thumb.style.display='none';
-    noThumb.style.display='block';
-
+    thumb.style.display = 'none';
+    noThumb.style.display = 'block';
   }
 
-  if(player){
+  if (player) {
     player.removeAttribute('src');
     player.load();
-    player.style.display='none';
+    player.style.display = 'none';
   }
 
-  $('#duration').textContent=
+  $('#duration').textContent =
     duration(data.duration);
 
   /*
-   * SADECE KALİTE SEÇİMİ
+   * KALİTE SEÇİMİ
    *
    * Sunucudan gelen formatlar
-   * doğrudan kalite kutusuna eklenir.
+   * select kutusuna eklenir.
    */
 
-  format.innerHTML='';
+  format.innerHTML = '';
 
-  const fs=data.formats||[];
+  const fs = Array.isArray(data.formats)
+    ? data.formats
+    : [];
 
-  const options=fs.length
-    ? fs
-    : [{
-        format_id:'best',
-        label:'En iyi kalite · MP4',
-        ext:'mp4'
-      }];
+  if (fs.length) {
+    fs.forEach(f => {
+      const o = document.createElement('option');
 
-  options.forEach(f=>{
+      o.value = f.format_id;
 
-    const o=document.createElement('option');
+      let label =
+        f.label ||
+        `${f.height ? f.height + 'p' : 'Kalite'}${f.ext ? ' · ' + f.ext : ''}`;
 
-    o.value=f.format_id;
+      if (f.filesize) {
+        label += ` · ${bytes(f.filesize)}`;
+      }
 
-    o.textContent=
-      `${f.label}${f.filesize?' · '+bytes(f.filesize):''}`;
+      o.textContent = label;
+
+      format.appendChild(o);
+    });
+  } else {
+    const o = document.createElement('option');
+
+    o.value = 'best';
+    o.textContent = 'En iyi kalite · MP4';
 
     format.appendChild(o);
-
-  });
+  }
 
   result.classList.remove('hidden');
 
   result.scrollIntoView({
-    behavior:'smooth',
-    block:'center'
+    behavior: 'smooth',
+    block: 'center'
   });
 
   progressWrap.classList.add('hidden');
 }
 
-format.addEventListener('change',()=>{
-
-  if(player&&player.style.display!=='none'){
-
+format.addEventListener('change', () => {
+  if (player && player.style.display !== 'none') {
     player.pause();
     player.removeAttribute('src');
     player.load();
-
   }
-
 });
 
-if(previewBtn){
+if (previewBtn) {
+  previewBtn.addEventListener('click', () => {
+    if (!data || !player) return;
 
-  previewBtn.addEventListener('click',()=>{
+    const selected =
+      format.value || 'best';
 
-    if(!data)return;
-
-    const selected=
-      format.value||'best';
-
-    player.src=
+    player.src =
       `/api/media?url=${encodeURIComponent(data.url)}&format=${encodeURIComponent(selected)}`;
 
-    player.style.display='block';
+    player.style.display = 'block';
 
-    player.play().catch(()=>{});
+    player.play().catch(() => {});
 
-    status.textContent=
+    status.textContent =
       'Video tarayıcı içinde hazırlandı.';
-
   });
-
 }
 
-$('#clear').onclick=()=>{
-
+$('#clear').onclick = () => {
   result.classList.add('hidden');
 
-  status.textContent='';
+  status.textContent = '';
 
-  if(player){
-
+  if (player) {
     player.pause();
     player.removeAttribute('src');
     player.load();
-
   }
 
   url.focus();
-
 };
 
-$('#clearHistory').onclick=()=>{
-
+$('#clearHistory').onclick = () => {
   localStorage.removeItem(historyKey);
 
   renderHistory();
-
 };
 
-async function downloadFile(){
-
-  if(!data)return;
+async function downloadFile() {
+  if (!data) return;
 
   /*
    * SEÇİLEN KALİTE
    *
-   * Burada seçilen format_id
-   * doğrudan sunucuya gönderilir.
+   * Select içindeki format_id
+   * olduğu gibi sunucuya gönderilir.
    */
 
-  const selected=
-    format.value||'best';
+  const selected =
+    format.value || 'best';
 
-  download.disabled=true;
+  download.disabled = true;
 
   progressWrap.classList.remove('hidden');
 
-  progressBar.style.width='0%';
+  progressBar.style.width = '0%';
 
-  progressText.textContent='0%';
+  progressText.textContent = '0%';
 
-  try{
-
-    const res=await fetch(
+  try {
+    const res = await fetch(
       `/api/download?url=${encodeURIComponent(data.url)}&format=${encodeURIComponent(selected)}`
     );
 
-    if(!res.ok){
+    if (!res.ok) {
+      let msg = 'İndirme başarısız.';
 
-      let msg='İndirme başarısız.';
+      try {
+        const j = await res.json();
 
-      try{
-
-        const j=await res.json();
-
-        msg=j.error||msg;
-
-      }catch{}
+        msg = j.error || msg;
+      } catch {}
 
       throw new Error(msg);
-
     }
 
-    const total=
+    const total =
       Number(
         res.headers.get('content-length')
-      )||0;
+      ) || 0;
 
-    const reader=
+    const reader =
       res.body.getReader();
 
-    let received=0;
+    let received = 0;
 
-    const chunks=[];
+    const chunks = [];
 
-    while(true){
-
-      const{
+    while (true) {
+      const {
         done,
         value
-      }=await reader.read();
+      } = await reader.read();
 
-      if(done)break;
+      if (done) break;
 
       chunks.push(value);
 
-      received+=value.byteLength;
+      received += value.byteLength;
 
-      if(total){
-
-        const pct=Math.min(
+      if (total) {
+        const pct = Math.min(
           100,
           Math.round(
-            received/total*100
+            received / total * 100
           )
         );
 
-        progressBar.style.width=
-          pct+'%';
+        progressBar.style.width =
+          pct + '%';
 
-        progressText.textContent=
-          pct+'%';
-
+        progressText.textContent =
+          pct + '%';
       }
-
     }
 
-    const blob=new Blob(
+    const blob = new Blob(
       chunks,
       {
         type:
-          res.headers.get('content-type')||
+          res.headers.get('content-type') ||
           'application/octet-stream'
       }
     );
 
-    const a=document.createElement('a');
+    const a =
+      document.createElement('a');
 
-    a.href=URL.createObjectURL(blob);
+    const objectUrl =
+      URL.createObjectURL(blob);
 
-    a.download='downly';
+    a.href = objectUrl;
+
+    a.download = 'downly';
 
     document.body.appendChild(a);
 
@@ -408,26 +406,25 @@ async function downloadFile(){
 
     a.remove();
 
-    URL.revokeObjectURL(a.href);
+    URL.revokeObjectURL(objectUrl);
 
-    progressBar.style.width='100%';
+    progressBar.style.width = '100%';
 
-    progressText.textContent='Tamamlandı';
+    progressText.textContent =
+      'Tamamlandı';
 
-    status.textContent='İndirme tamamlandı.';
+    status.textContent =
+      'İndirme tamamlandı.';
 
-  }catch(err){
-
-    status.textContent=
-      err.message||
+  } catch (err) {
+    status.textContent =
+      err.message ||
       'İndirme başarısız.';
 
     progressWrap.classList.add('hidden');
 
-  }finally{
-
-    download.disabled=false;
-
+  } finally {
+    download.disabled = false;
   }
 }
 
@@ -440,31 +437,27 @@ download.addEventListener(
  * GECE MODU
  */
 
-$('#theme').onclick=()=>{
-
+$('#theme').onclick = () => {
   document.body.classList.toggle('dark');
 
-  const dark=
+  const dark =
     document.body.classList.contains('dark');
 
-  $('#theme').textContent=
-    dark?'☀':'☾';
+  $('#theme').textContent =
+    dark ? '☀' : '☾';
 
   localStorage.setItem(
     'downly-theme',
-    dark?'dark':'light'
+    dark ? 'dark' : 'light'
   );
-
 };
 
-if(
-  localStorage.getItem('downly-theme')==='dark'
-){
-
+if (
+  localStorage.getItem('downly-theme') === 'dark'
+) {
   document.body.classList.add('dark');
 
-  $('#theme').textContent='☀';
-
+  $('#theme').textContent = '☀';
 }
 
 renderHistory();
