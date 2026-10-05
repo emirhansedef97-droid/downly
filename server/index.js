@@ -14,7 +14,10 @@ const PORT = process.env.PORT || 3000;
 const MAX_BODY = '50kb';
 
 const YTDLP = process.env.YTDLP_PATH || '/usr/local/bin/yt-dlp';
-const YTDLP_BASE = [];
+const YTDLP_BASE = [
+  '--js-runtimes',
+  'node'
+];
 
 app.use(cors());
 app.use(express.json({ limit: MAX_BODY }));
