@@ -14,7 +14,7 @@ const MAX_BODY = '50kb';
 
 // Prefer the Python module so Windows installations are reliable even when
 // the yt-dlp executable is not on PATH. Set YTDLP_PATH to override.
-const YTDLP = process.env.YTDLP_PATH || 'python';
+const YTDLP = process.env.YTDLP_PATH || 'python3';
 const YTDLP_BASE = process.env.YTDLP_PATH ? [] : ['-m', 'yt_dlp'];
 
 app.use(cors());
