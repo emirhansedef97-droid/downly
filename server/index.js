@@ -56,10 +56,9 @@ function validateUrl(raw) {
 
 function buildYtdlpArgs(args, platform) {
   const base = [...YTDLP_BASE];
-  // Do not hard-code a browser User-Agent. yt-dlp maintainers specifically
-  // warn that a custom UA can cause Instagram 403s.
-  if (platform === 'instagram') base.push('--impersonate', 'chrome');
   return [...base, ...args];
+}
+
 }
 
 function runYtdlp(args, platform) {
