@@ -1,3 +1,4 @@
+
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
@@ -98,23 +99,16 @@ return u.toString();
 
 YouTube dışındaki platformlara DOKUNMUYORUZ.
 
-YouTube için:
-
-Render Secret File içindeki cookie kullanılır.
-
-Alternatif player client'ları denenir.
+Sadece YouTube için cookie ve alternatif player client kullanılıyor.
 */
 function buildYtdlpArgs(args, platform) {
 if (platform === 'youtube') {
 return [
 ...YTDLP_BASE,
-
 '--cookies',
 YOUTUBE_COOKIES,
-
 '--extractor-args',
 'youtube:player_client=web_embedded,web_safari,ios',
-
 ...args
 ];
 }
