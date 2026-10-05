@@ -9,11 +9,12 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
 const PORT = process.env.PORT || 3000;
 const MAX_BODY = '50kb';
 
 const YTDLP = process.env.YTDLP_PATH || '/usr/local/bin/yt-dlp';
-const YTDLP_BASE = [];
+const FFMPEG = process.env.FFMPEG_PATH || 'ffmpeg';
 
 app.use(cors());
 app.use(express.json({ limit: MAX_BODY }));
@@ -91,7 +92,7 @@ function validateUrl(raw) {
 }
 
 function buildYtdlpArgs(args, platform) {
-  return [...YTDLP_BASE, ...args];
+  return [...args];
 }
 
 function runYtdlp(args, platform) {
@@ -125,9 +126,53 @@ function runYtdlp(args, platform) {
         resolve(out);
       } else {
         console.error('YT-DLP ERROR:', err);
+
         reject(
           new Error(
             cleanError(err) || 'İçerik alınamadı.'
+          )
+        );
+      }
+    });
+  });
+}
+
+function runFfmpeg(args) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(
+      FFMPEG,
+      args,
+      {
+        stdio: ['ignore', 'ignore', 'pipe']
+      }
+    );
+
+    let err = '';
+
+    p.stderr.on('data', d => {
+      err += d;
+    });
+
+    p.on('error', error => {
+      console.error('FFMPEG SPAWN ERROR:', error);
+
+      reject(
+        new Error(
+          'ffmpeg çalıştırılamadı.'
+        )
+      );
+    });
+
+    p.on('close', code => {
+      if (code === 0) {
+        resolve();
+      } else {
+        console.error('FFMPEG ERROR:', err);
+
+        reject(
+          new Error(
+            cleanError(err) ||
+            'Video dönüştürülemedi.'
           )
         );
       }
@@ -219,7 +264,10 @@ app.post('/api/analyze', async (req, res) => {
 
     res.json({
       ok: true,
-      platform: info.extractor_key || info.extractor || platform,
+      platform:
+        info.extractor_key ||
+        info.extractor ||
+        platform,
       title: info.title || 'İçerik',
       thumbnail: info.thumbnail || null,
       duration: info.duration || null,
@@ -227,6 +275,7 @@ app.post('/api/analyze', async (req, res) => {
     });
   } catch (e) {
     console.error('ANALYZE ERROR:', e);
+
     res.status(400).json({
       ok: false,
       error: e.message
@@ -242,7 +291,9 @@ app.get('/api/media', async (req, res) => {
     const parsed = new URL(url);
     const platform = platformFor(parsed);
 
-    const format = String(req.query.format || 'best');
+    const format = String(
+      req.query.format || 'best'
+    );
 
     if (!/^[A-Za-z0-9+\-_.]+$/.test(format)) {
       throw new Error('Geçersiz format.');
@@ -253,14 +304,30 @@ app.get('/api/media', async (req, res) => {
       `downly-preview-${crypto.randomUUID()}`
     );
 
-    await mkdir(tmpDir, { recursive: true });
+    await mkdir(tmpDir, {
+      recursive: true
+    });
 
-    const template = path.join(
+    /*
+     * Önce videoyu indiriyoruz.
+     *
+     * Daha sonra ffmpeg ile:
+     *   Video: H.264
+     *   Audio: AAC
+     *   Container: MP4
+     *
+     * haline getiriyoruz.
+     *
+     * Böylece Chrome, Edge, Safari ve Firefox
+     * görüntüyü düzgün oynatabiliyor.
+     */
+
+    const sourceTemplate = path.join(
       tmpDir,
-      'preview.%(ext)s'
+      'source.%(ext)s'
     );
 
-  const selector =
+    const selector =
       format === 'best'
         ? 'best[ext=mp4][vcodec!=none][acodec!=none]/best[ext=mp4]/best'
         : `${format}/best[ext=mp4][vcodec!=none][acodec!=none]/best[ext=mp4]/best`;
@@ -272,7 +339,7 @@ app.get('/api/media', async (req, res) => {
         '-f',
         selector,
         '-o',
-        template,
+        sourceTemplate,
         url
       ];
 
@@ -290,14 +357,28 @@ app.get('/api/media', async (req, res) => {
         err += d;
       });
 
-      p.on('error', () => {
-        reject(new Error('yt-dlp bulunamadı.'));
+      p.on('error', error => {
+        console.error(
+          'MEDIA YTDLP SPAWN ERROR:',
+          error
+        );
+
+        reject(
+          new Error(
+            'yt-dlp çalıştırılamadı.'
+          )
+        );
       });
 
       p.on('close', code => {
         if (code === 0) {
           resolve();
         } else {
+          console.error(
+            'MEDIA YTDLP ERROR:',
+            err
+          );
+
           reject(
             new Error(
               cleanError(err) ||
@@ -314,48 +395,105 @@ app.get('/api/media', async (req, res) => {
       });
     });
 
-    const files = await readdir(tmpDir);
+    const sourceFiles = await readdir(tmpDir);
 
-    const media = files.find(f =>
-      /\.(mp4|webm|mov)$/i.test(f)
+    const sourceMedia = sourceFiles.find(f =>
+      /^source\.(mp4|webm|mkv|mov|m4v)$/i.test(f)
     );
 
-    if (!media) {
+    if (!sourceMedia) {
       throw new Error(
-        'Tarayıcıda oynatılabilir video oluşturulamadı.'
+        'Video dosyası oluşturulamadı.'
       );
     }
 
-    const file = path.join(tmpDir, media);
-    const info = await stat(file);
+    const sourceFile = path.join(
+      tmpDir,
+      sourceMedia
+    );
 
-    const ext = path
-      .extname(media)
-      .slice(1)
-      .toLowerCase();
+    const outputFile = path.join(
+      tmpDir,
+      'preview.mp4'
+    );
 
-    const mime =
-      ext === 'mp4'
-        ? 'video/mp4'
-        : ext === 'webm'
-          ? 'video/webm'
-          : 'video/quicktime';
+    console.log(
+      'FFMPEG: Videoyu tarayıcı uyumlu MP4 formatına dönüştürüyor...'
+    );
 
-    res.setHeader('Content-Length', info.size);
-    res.setHeader('Content-Type', mime);
+    await runFfmpeg([
+      '-y',
+      '-i',
+      sourceFile,
+
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a:0?',
+
+      '-c:v',
+      'libx264',
+      '-preset',
+      'veryfast',
+      '-crf',
+      '23',
+      '-pix_fmt',
+      'yuv420p',
+
+      '-c:a',
+      'aac',
+      '-b:a',
+      '128k',
+
+      '-movflags',
+      '+faststart',
+
+      outputFile
+    ]);
+
+    console.log(
+      'FFMPEG: Önizleme hazır.'
+    );
+
+    const info = await stat(
+      outputFile
+    );
+
+    res.setHeader(
+      'Content-Length',
+      info.size
+    );
+
+    res.setHeader(
+      'Content-Type',
+      'video/mp4'
+    );
+
     res.setHeader(
       'Content-Disposition',
-      `inline; filename="downly-preview.${ext}"`
+      'inline; filename="downly-preview.mp4"'
     );
-    res.setHeader('Accept-Ranges', 'bytes');
 
-    res.sendFile(file, async () => {
-      await rm(tmpDir, {
-        recursive: true,
-        force: true
-      }).catch(() => {});
-    });
+    res.setHeader(
+      'Accept-Ranges',
+      'bytes'
+    );
+
+    res.sendFile(
+      outputFile,
+      async () => {
+        await rm(tmpDir, {
+          recursive: true,
+          force: true
+        }).catch(() => {});
+      }
+    );
   } catch (e) {
+    console.error(
+      'MEDIA ERROR:',
+      e
+    );
+
     if (tmpDir) {
       await rm(tmpDir, {
         recursive: true,
@@ -376,14 +514,21 @@ app.get('/api/download', async (req, res) => {
   let tmpDir;
 
   try {
-    const url = validateUrl(req.query.url || '');
+    const url = validateUrl(
+      req.query.url || ''
+    );
+
     const parsed = new URL(url);
     const platform = platformFor(parsed);
 
-    const format = String(req.query.format || 'best');
+    const format = String(
+      req.query.format || 'best'
+    );
 
     if (!/^[A-Za-z0-9+\-_.]+$/.test(format)) {
-      throw new Error('Geçersiz format.');
+      throw new Error(
+        'Geçersiz format.'
+      );
     }
 
     tmpDir = path.join(
@@ -391,7 +536,9 @@ app.get('/api/download', async (req, res) => {
       `downly-${crypto.randomUUID()}`
     );
 
-    await mkdir(tmpDir, { recursive: true });
+    await mkdir(tmpDir, {
+      recursive: true
+    });
 
     const template = path.join(
       tmpDir,
@@ -428,14 +575,28 @@ app.get('/api/download', async (req, res) => {
         err += d;
       });
 
-      p.on('error', () => {
-        reject(new Error('yt-dlp bulunamadı.'));
+      p.on('error', error => {
+        console.error(
+          'DOWNLOAD SPAWN ERROR:',
+          error
+        );
+
+        reject(
+          new Error(
+            'yt-dlp bulunamadı.'
+          )
+        );
       });
 
       p.on('close', code => {
         if (code === 0) {
           resolve();
         } else {
+          console.error(
+            'DOWNLOAD YTDLP ERROR:',
+            err
+          );
+
           reject(
             new Error(
               cleanError(err) ||
@@ -452,7 +613,9 @@ app.get('/api/download', async (req, res) => {
       });
     });
 
-    const files = await readdir(tmpDir);
+    const files = await readdir(
+      tmpDir
+    );
 
     const media = files.find(f =>
       /\.(mp4|webm|m4a|mov|jpg|jpeg|png|webp)$/i.test(f)
@@ -464,11 +627,18 @@ app.get('/api/download', async (req, res) => {
       );
     }
 
-    const file = path.join(tmpDir, media);
+    const file = path.join(
+      tmpDir,
+      media
+    );
+
     const info = await stat(file);
 
     const ext =
-      path.extname(media).slice(1).toLowerCase() ||
+      path
+        .extname(media)
+        .slice(1)
+        .toLowerCase() ||
       'mp4';
 
     const mime =
@@ -480,20 +650,36 @@ app.get('/api/download', async (req, res) => {
             ? 'image/jpeg'
             : 'application/octet-stream';
 
-    res.setHeader('Content-Length', info.size);
-    res.setHeader('Content-Type', mime);
+    res.setHeader(
+      'Content-Length',
+      info.size
+    );
+
+    res.setHeader(
+      'Content-Type',
+      mime
+    );
+
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="downly.${ext}"`
     );
 
-    res.sendFile(file, async () => {
-      await rm(tmpDir, {
-        recursive: true,
-        force: true
-      }).catch(() => {});
-    });
+    res.sendFile(
+      file,
+      async () => {
+        await rm(tmpDir, {
+          recursive: true,
+          force: true
+        }).catch(() => {});
+      }
+    );
   } catch (e) {
+    console.error(
+      'DOWNLOAD ERROR:',
+      e
+    );
+
     if (tmpDir) {
       await rm(tmpDir, {
         recursive: true,
