@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://downly-i812.onrender.com/sitemap.xml
