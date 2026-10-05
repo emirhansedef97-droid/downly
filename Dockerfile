@@ -13,6 +13,25 @@ RUN python3 -m pip install \
     --no-cache-dir \
     -U "yt-dlp[default,curl-cffi]"
 
+# YouTube cookie varsa otomatik olarak yt-dlp'ye verir.
+# index.js'e dokunmuyoruz.
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    'COOKIE="/etc/secrets/www.youtube.com_cookies.txt"' \
+    'for arg in "$@"; do' \
+    '  case "$arg" in' \
+    '    *youtube.com*|*youtu.be*)' \
+    '      if [ -f "$COOKIE" ]; then' \
+    '        exec /usr/local/bin/yt-dlp --cookies "$COOKIE" "$@"' \
+    '      fi' \
+    '      break' \
+    '      ;;' \
+    '  esac' \
+    'done' \
+    'exec /usr/local/bin/yt-dlp "$@"' \
+    > /usr/local/bin/downly-yt-dlp && \
+    chmod +x /usr/local/bin/downly-yt-dlp
+
 WORKDIR /app
 
 COPY package*.json ./
@@ -22,6 +41,7 @@ RUN npm install --omit=dev
 COPY . .
 
 ENV NODE_ENV=production
+ENV YTDLP_PATH=/usr/local/bin/downly-yt-dlp
 
 EXPOSE 3000
 
