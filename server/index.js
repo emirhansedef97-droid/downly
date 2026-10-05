@@ -25,7 +25,9 @@ const ALLOWED = [
   /(^|\.)x\.com$/i,
   /(^|\.)twitter\.com$/i,
   /(^|\.)tiktok\.com$/i,
-  /(^|\.)facebook\.com$/i
+  /(^|\.)facebook\.com$/i,
+  /(^|\.)youtube\.com$/i,
+  /(^|\.)youtu\.be$/i
 ];
 
 function platformFor(url) {
@@ -50,6 +52,14 @@ function platformFor(url) {
 
   if (h === 'facebook.com' || h.endsWith('.facebook.com')) {
     return 'facebook';
+  }
+
+  if (
+    h === 'youtube.com' ||
+    h.endsWith('.youtube.com') ||
+    h === 'youtu.be'
+  ) {
+    return 'youtube';
   }
 
   return 'social';
@@ -97,6 +107,10 @@ function cleanError(err) {
     /login required|rate-limit|not available|empty media response/i.test(s)
   ) {
     return 'İçeriğe şu anda erişilemiyor. İçerik herkese açık olmalı ve platform erişimi engellememiş olmalı.';
+  }
+
+  if (/sign in to confirm|not a bot|confirm you.?re not a bot/i.test(s)) {
+    return 'YouTube bu sunucunun isteğini bot doğrulamasına taktı.';
   }
 
   if (/unsupported url/i.test(s)) {
@@ -269,6 +283,140 @@ function normalizeFormats(info) {
     .slice(0, 8);
 }
 
+async function createBrowserPreview(url, tmpDir, format) {
+  const sourceTemplate = path.join(
+    tmpDir,
+    'source.%(ext)s'
+  );
+
+  const outputFile = path.join(
+    tmpDir,
+    'preview.mp4'
+  );
+
+  const selector =
+    format === 'best'
+      ? 'bestvideo[ext=mp4][vcodec^=avc1]+bestaudio[ext=m4a]/best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best'
+      : `${format}+bestaudio[ext=m4a]/${format}/best[ext=mp4][vcodec^=avc1]/best[ext=mp4]/best`;
+
+  const args = [
+    '--no-playlist',
+    '--no-warnings',
+    '-f',
+    selector,
+    '-o',
+    sourceTemplate,
+    url
+  ];
+
+  await spawnYtdlp(args);
+
+  const files = await readdir(tmpDir);
+
+  const source = files.find(file => {
+    return (
+      /^source\./i.test(file) &&
+      /\.(mp4|webm|mov|mkv|m4v)$/i.test(file)
+    );
+  });
+
+  if (!source) {
+    throw new Error(
+      'Önizleme için video kaynağı oluşturulamadı.'
+    );
+  }
+
+  const sourceFile = path.join(
+    tmpDir,
+    source
+  );
+
+  await new Promise((resolve, reject) => {
+    const ffmpegArgs = [
+      '-y',
+      '-i',
+      sourceFile,
+
+      '-map',
+      '0:v:0',
+      '-map',
+      '0:a:0?',
+
+      '-c:v',
+      'libx264',
+
+      '-preset',
+      'veryfast',
+
+      '-crf',
+      '23',
+
+      '-pix_fmt',
+      'yuv420p',
+
+      '-c:a',
+      'aac',
+
+      '-b:a',
+      '128k',
+
+      '-movflags',
+      '+faststart',
+
+      outputFile
+    ];
+
+    console.log(
+      'FFMPEG PREVIEW:',
+      ffmpegArgs.join(' ')
+    );
+
+    const p = spawn(
+      'ffmpeg',
+      ffmpegArgs,
+      {
+        stdio: ['ignore', 'ignore', 'pipe']
+      }
+    );
+
+    let err = '';
+
+    p.stderr.on('data', d => {
+      err += d.toString();
+    });
+
+    p.on('error', error => {
+      console.error(
+        'FFMPEG SPAWN ERROR:',
+        error
+      );
+
+      reject(
+        new Error('ffmpeg çalıştırılamadı.')
+      );
+    });
+
+    p.on('close', code => {
+      if (code === 0) {
+        resolve();
+      } else {
+        console.error(
+          'FFMPEG ERROR:',
+          err
+        );
+
+        reject(
+          new Error(
+            'Video web oynatımı için dönüştürülemedi.'
+          )
+        );
+      }
+    });
+  });
+
+  return outputFile;
+}
+
 app.get('/api/health', (_req, res) => {
   res.json({
     ok: true,
@@ -335,6 +483,110 @@ app.post('/api/analyze', async (req, res) => {
       ok: false,
       error: e.message
     });
+  }
+});
+
+app.get('/api/media', async (req, res) => {
+  let tmpDir;
+
+  try {
+    const url = validateUrl(
+      req.query?.url
+    );
+
+    const format = String(
+      req.query?.format || 'best'
+    );
+
+    if (
+      !/^[A-Za-z0-9+\-_.]+$/.test(format)
+    ) {
+      throw new Error(
+        'Geçersiz format.'
+      );
+    }
+
+    tmpDir = path.join(
+      '/tmp',
+      `downly-preview-${crypto.randomUUID()}`
+    );
+
+    await mkdir(
+      tmpDir,
+      {
+        recursive: true
+      }
+    );
+
+    console.log(
+      'MEDIA URL:',
+      url
+    );
+
+    const previewFile =
+      await createBrowserPreview(
+        url,
+        tmpDir,
+        format
+      );
+
+    const info =
+      await stat(previewFile);
+
+    res.setHeader(
+      'Content-Length',
+      info.size
+    );
+
+    res.setHeader(
+      'Content-Type',
+      'video/mp4'
+    );
+
+    res.setHeader(
+      'Content-Disposition',
+      'inline; filename="downly-preview.mp4"'
+    );
+
+    res.setHeader(
+      'Accept-Ranges',
+      'bytes'
+    );
+
+    res.sendFile(
+      previewFile,
+      async () => {
+        await rm(
+          tmpDir,
+          {
+            recursive: true,
+            force: true
+          }
+        ).catch(() => {});
+      }
+    );
+  } catch (e) {
+    console.error(
+      'MEDIA ERROR:',
+      e
+    );
+
+    if (tmpDir) {
+      await rm(
+        tmpDir,
+        {
+          recursive: true,
+          force: true
+        }
+      ).catch(() => {});
+    }
+
+    if (!res.headersSent) {
+      res.status(400).json({
+        ok: false,
+        error: e.message
+      });
+    }
   }
 });
 
