@@ -14,10 +14,7 @@ const PORT = process.env.PORT || 3000;
 const MAX_BODY = '50kb';
 
 const YTDLP = process.env.YTDLP_PATH || '/usr/local/bin/yt-dlp';
-const YTDLP_BASE = [
-  '--js-runtimes',
-  'node'
-];
+const YTDLP_BASE = [];
 
 app.use(cors());
 app.use(express.json({ limit: MAX_BODY }));
@@ -94,7 +91,21 @@ function validateUrl(raw) {
   return u.toString();
 }
 
+/*
+ * YouTube dışındaki platformlara DOKUNMUYORUZ.
+ *
+ * Sadece YouTube için alternatif player client'ları deneniyor.
+ */
 function buildYtdlpArgs(args, platform) {
+  if (platform === 'youtube') {
+    return [
+      ...YTDLP_BASE,
+      '--extractor-args',
+      'youtube:player_client=web_embedded,web_safari,ios',
+      ...args
+    ];
+  }
+
   return [...YTDLP_BASE, ...args];
 }
 
@@ -121,7 +132,10 @@ function runYtdlp(args, platform) {
 
     p.on('error', error => {
       console.error('YT-DLP SPAWN ERROR:', error);
-      reject(new Error('yt-dlp çalıştırılamadı.'));
+
+      reject(
+        new Error('yt-dlp çalıştırılamadı.')
+      );
     });
 
     p.on('close', code => {
@@ -132,7 +146,8 @@ function runYtdlp(args, platform) {
 
         reject(
           new Error(
-            cleanError(err) || 'İçerik alınamadı.'
+            cleanError(err) ||
+            'İçerik alınamadı.'
           )
         );
       }
@@ -152,7 +167,13 @@ function cleanError(err) {
   if (
     /login required|rate-limit|not available|empty media response/i.test(s)
   ) {
-    return 'Instagram içeriğine şu anda erişilemiyor. İçerik herkese açık olmalı ve Instagram erişimi engellememiş olmalı.';
+    return 'İçeriğe şu anda erişilemiyor. İçerik herkese açık olmalı ve platform erişimi engellememiş olmalı.';
+  }
+
+  if (
+    /sign in to confirm|not a bot|confirm you.?re not a bot/i.test(s)
+  ) {
+    return 'YouTube bu sunucunun isteğini bot doğrulamasına taktı.';
   }
 
   if (/unsupported url/i.test(s)) {
@@ -196,20 +217,7 @@ function normalizeFormats(info) {
     .slice(0, 8);
 }
 
-/*
- * Tarayıcı önizlemesi için:
- *
- * Instagram -> yt-dlp -> kaynak video -> ffmpeg -> H.264/AAC MP4
- *
- * Böylece tarayıcının desteklemediği video codec'lerini
- * tarayıcı uyumlu H.264'e dönüştürüyoruz.
- */
-async function createBrowserPreview(
-  url,
-  platform,
-  tmpDir,
-  format
-) {
+async function createBrowserPreview(url, platform, tmpDir, format) {
   const sourceTemplate = path.join(
     tmpDir,
     'source.%(ext)s'
