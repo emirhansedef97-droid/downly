@@ -57,11 +57,40 @@ function validateUrl(raw) {
 function buildYtdlpArgs(args, platform) {
   const base = [...YTDLP_BASE];
   return [...base, ...args];
-
-
-
+}
 
 function runYtdlp(args, platform) {
+  return new Promise((resolve, reject) => {
+    const p = spawn(YTDLP, buildYtdlpArgs(args, platform), {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    let out = '';
+    let err = '';
+
+    p.stdout.on('data', d => {
+      out += d;
+    });
+
+    p.stderr.on('data', d => {
+      err += d;
+    });
+
+    p.on('error', () => {
+      reject(new Error('yt-dlp bulunamadı.'));
+    });
+
+    p.on('close', code => {
+      if (code === 0) {
+        resolve(out);
+      } else {
+        console.error('YT-DLP ERROR:', err);
+        reject(new Error(cleanError(err) || 'İçerik alınamadı.'));
+      }
+    });
+  });
+}
+
   return new Promise((resolve, reject) => {
     const p = spawn(YTDLP, buildYtdlpArgs(args, platform), {
       stdio: ['ignore', 'pipe', 'pipe']
