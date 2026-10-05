@@ -1,3 +1,6 @@
+Dockerfile
+
+
 FROM node:22-bookworm-slim
 
 RUN apt-get update && \
@@ -5,42 +8,13 @@ RUN apt-get update && \
       python3 \
       python3-pip \
       ffmpeg \
-      ca-certificates \
-      curl && \
+      ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# yt-dlp
 RUN python3 -m pip install \
     --break-system-packages \
     --no-cache-dir \
     -U "yt-dlp[default,curl-cffi]"
-
-# YouTube PO Token Provider plugin
-RUN python3 -m pip install \
-    --break-system-packages \
-    --no-cache-dir \
-    -U bgutil-ytdlp-pot-provider
-
-# YouTube cookie'yi Render'ın read-only Secret Files alanından
-# yazılabilir /tmp alanına kopyalayan wrapper.
-RUN printf '%s\n' \
-    '#!/bin/sh' \
-    'COOKIE="/etc/secrets/www.youtube.com_cookies.txt"' \
-    'TEMP_COOKIE="/tmp/downly-youtube-cookies.txt"' \
-    'for arg in "$@"; do' \
-    '  case "$arg" in' \
-    '    *youtube.com*|*youtu.be*)' \
-    '      if [ -f "$COOKIE" ]; then' \
-    '        cp "$COOKIE" "$TEMP_COOKIE"' \
-    '        exec /usr/local/bin/yt-dlp --cookies "$TEMP_COOKIE" "$@"' \
-    '      fi' \
-    '      break' \
-    '      ;;' \
-    '  esac' \
-    'done' \
-    'exec /usr/local/bin/yt-dlp "$@"' \
-    > /usr/local/bin/downly-yt-dlp && \
-    chmod +x /usr/local/bin/downly-yt-dlp
 
 WORKDIR /app
 
@@ -50,9 +24,28 @@ RUN npm install --omit=dev
 
 COPY . .
 
+# Render Secret File'i read-only olduğu için
+# çalışma sırasında /tmp altına kopyalayacağız.
+RUN printf '%s\n' \
+    '#!/bin/sh' \
+    'set -e' \
+    '' \
+    'COOKIE_SOURCE="/etc/secrets/www.youtube.com_cookies.txt"' \
+    'COOKIE_RUNTIME="/tmp/youtube_cookies.txt"' \
+    '' \
+    'if [ -f "$COOKIE_SOURCE" ]; then' \
+    '  cp "$COOKIE_SOURCE" "$COOKIE_RUNTIME"' \
+    '  chmod 600 "$COOKIE_RUNTIME"' \
+    'fi' \
+    '' \
+    'exec "$@"' \
+    > /usr/local/bin/downly-entrypoint && \
+    chmod +x /usr/local/bin/downly-entrypoint
+
 ENV NODE_ENV=production
-ENV YTDLP_PATH=/usr/local/bin/downly-yt-dlp
+ENV YTDLP_PATH=/usr/local/bin/yt-dlp
 
 EXPOSE 3000
 
+ENTRYPOINT ["/usr/local/bin/downly-entrypoint"]
 CMD ["npm","start"]
