@@ -413,15 +413,21 @@ download.addEventListener(
 $('#theme').onclick = () => {
   document.body.classList.toggle('dark');
 
-  const dark =
-    document.body.classList.contains('dark');
+  const dark = document.body.classList.contains('dark');
 
-  $('#theme').textContent =
-    dark ? '☀' : '☾';
+  $('#theme').textContent = dark ? '☀' : '☾';
 
   localStorage.setItem(
     'downly-theme',
     dark ? 'dark' : 'light'
+  );
+};
+
+if (localStorage.getItem('downly-theme') !== 'light') {
+  document.body.classList.add('dark');
+  $('#theme').textContent = '☀';
+}
+
   );
 };
 
