@@ -1,40 +1,397 @@
 <!doctype html>
 <html lang="tr">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="description" content="Downly — bağlantıyı yapıştır, herkese açık içeriğini kolayca indir.">
-<meta name="theme-color" content="#f7f8f4"><title>Downly — Linki yapıştır, indir</title>
+<meta name="theme-color" content="#f7f8f4">
+<title>Downly — Linki yapıştır, indir</title>
 <link rel="stylesheet" href="/style.css">
 </head>
+
 <body>
+
 <div class="ambient"></div>
-<header class="topbar"><a class="brand" href="/"><span>↓</span>Downly</a><nav><a href="#features">Özellikler</a><a href="#how">Nasıl çalışır?</a></nav><div class="top-actions"><button id="theme" class="ghost" aria-label="Tema değiştir">☾</button></div></header>
+
+<header class="topbar">
+  <a class="brand" href="/">
+    <span>↓</span>Downly
+  </a>
+
+  <nav>
+    <a href="#features">Özellikler</a>
+    <a href="#how">Nasıl çalışır?</a>
+  </nav>
+
+  <div class="top-actions">
+    <button id="theme" class="ghost" aria-label="Tema değiştir">☾</button>
+  </div>
+</header>
+
 <main>
+
 <section class="hero">
-  <div class="eyebrow">Basit · Hızlı · Hesapsız</div>
-  <h1>Linki bırak,<br><span>gerisini Downly yapsın.</span></h1>
-  <p>Instagram, X, TikTok, Facebook ve YouTube bağlantılarını tek yerde analiz et ve uygun formatı indir.</p>
+
+  <div class="eyebrow">
+    Basit · Hızlı · Hesapsız
+  </div>
+
+  <h1>
+    Linki bırak,<br>
+    <span>gerisini Downly yapsın.</span>
+  </h1>
+
+  <p>
+    Instagram, X, TikTok ve Facebook bağlantılarını
+    tek yerde analiz et ve uygun formatı indir.
+  </p>
+
   <form id="form" class="search-card">
-    <div class="url-row"><span class="link-icon">↗</span><input id="url" type="url" placeholder="https://instagram.com/..." autocomplete="off" required><button id="analyzeBtn">Analiz et <span>→</span></button></div>
-    <div class="supported"><span>Desteklenenler</span><b>Instagram</b><b>TikTok</b><b>X</b><b>Facebook</b><b>YouTube</b></div>
+
+    <div class="url-row">
+
+      <span class="link-icon">↗</span>
+
+      <input
+        id="url"
+        type="url"
+        placeholder="https://instagram.com/..."
+        autocomplete="off"
+        required
+      >
+
+      <button id="analyzeBtn">
+        Analiz et <span>→</span>
+      </button>
+
+    </div>
+
+    <div class="supported">
+
+      <span>Desteklenenler</span>
+
+      <b>Instagram</b>
+      <b>TikTok</b>
+      <b>X</b>
+      <b>Facebook</b>
+
+    </div>
+
   </form>
-  <div id="status" class="status" aria-live="polite"></div>
+
+  <div
+    id="status"
+    class="status"
+    aria-live="polite"
+  ></div>
+
 </section>
+
 
 <section id="result" class="result hidden">
-  <div class="result-head"><div><span class="section-kicker">HAZIR</span><h2>İçerik bulundu</h2></div><button id="clear" class="text-btn">Yeni bağlantı</button></div>
-  <div class="result-card">
-    <div class="preview"><img id="thumb" alt="İçerik önizlemesi"><video id="player" controls playsinline preload="metadata" class="media-player"></video><div id="noThumb">Önizleme mevcut değil</div><span id="duration" class="duration"></span></div>
-    <div class="details"><span id="platform" class="platform"></span><h3 id="title"></h3><p>İndirmek istediğin kaliteyi seç.</p><label for="format">Kalite</label><select id="format"></select><div class="action-row"><button id="previewBtn" class="secondary" type="button">▶ Tarayıcıda oynat</button><button id="download" class="download">↓ Kaydet</button></div><div id="progressWrap" class="progress-wrap hidden"><div class="progress-top"><span>İndiriliyor…</span><b id="progressText">0%</b></div><div class="progress"><i id="progressBar"></i></div></div><small>Yalnızca indirme hakkınız olan veya herkese açık içerikleri indirin.</small></div>
+
+  <div class="result-head">
+
+    <div>
+      <span class="section-kicker">HAZIR</span>
+      <h2>İçerik bulundu</h2>
+    </div>
+
+    <button
+      id="clear"
+      class="text-btn"
+      type="button"
+    >
+      Yeni bağlantı
+    </button>
+
   </div>
+
+
+  <div class="result-card">
+
+    <div class="preview">
+
+      <img
+        id="thumb"
+        alt="İçerik önizlemesi"
+      >
+
+      <div id="noThumb">
+        Önizleme mevcut değil
+      </div>
+
+      <span
+        id="duration"
+        class="duration"
+      ></span>
+
+    </div>
+
+
+    <div class="details">
+
+      <span
+        id="platform"
+        class="platform"
+      ></span>
+
+      <h3 id="title"></h3>
+
+      <p>
+        İndirmek istediğin kaliteyi seç.
+      </p>
+
+      <label for="format">
+        Kalite
+      </label>
+
+      <select id="format"></select>
+
+      <div class="action-row">
+
+        <button
+          id="download"
+          class="download"
+          type="button"
+        >
+          ↓ Kaydet
+        </button>
+
+      </div>
+
+
+      <div
+        id="progressWrap"
+        class="progress-wrap hidden"
+      >
+
+        <div class="progress-top">
+
+          <span>
+            İndiriliyor…
+          </span>
+
+          <b id="progressText">
+            0%
+          </b>
+
+        </div>
+
+        <div class="progress">
+          <i id="progressBar"></i>
+        </div>
+
+      </div>
+
+
+      <small>
+        Yalnızca indirme hakkınız olan veya
+        herkese açık içerikleri indirin.
+      </small>
+
+    </div>
+
+  </div>
+
 </section>
 
-<section id="history" class="history hidden"><div class="section-row"><div><span class="section-kicker">GEÇMİŞ</span><h2>Son bağlantılar</h2></div><button id="clearHistory" class="text-btn">Temizle</button></div><div id="historyList" class="history-list"></div></section>
 
-<section id="features" class="features"><article><span>01</span><h3>Tek kutu</h3><p>URL'yi yapıştır. Platformu Downly tanısın.</p></article><article><span>02</span><h3>Rahat seçim</h3><p>Uygun kalite seçeneklerini sade bir listeden seç.</p></article><article><span>03</span><h3>Hızlı sonuç</h3><p>Gereksiz ekranlar olmadan doğrudan indir.</p></article></section>
-<section id="how" class="how"><span class="section-kicker">NASIL ÇALIŞIR?</span><h2>Üç adım, hepsi bu.</h2><div class="steps"><div><b>1</b><span>Bağlantıyı kopyala</span></div><div><b>2</b><span>Downly'ye yapıştır</span></div><div><b>3</b><span>Kaliteyi seç ve indir</span></div></div></section>
-<section class="trust"><div><b>🔒</b><span><strong>Şifre istemiyoruz.</strong> Hesabına giriş yapman gerekmez.</span></div><div><b>⚡</b><span><strong>Gereksiz kalabalık yok.</strong> Sadece ihtiyacın olan akış.</span></div><div><b>✓</b><span><strong>Şeffaf kullanım.</strong> İçerik haklarına saygı göster.</span></div></section>
+<section
+  id="history"
+  class="history hidden"
+>
+
+  <div class="section-row">
+
+    <div>
+
+      <span class="section-kicker">
+        GEÇMİŞ
+      </span>
+
+      <h2>
+        Son bağlantılar
+      </h2>
+
+    </div>
+
+    <button
+      id="clearHistory"
+      class="text-btn"
+      type="button"
+    >
+      Temizle
+    </button>
+
+  </div>
+
+  <div
+    id="historyList"
+    class="history-list"
+  ></div>
+
+</section>
+
+
+<section
+  id="features"
+  class="features"
+>
+
+  <article>
+
+    <span>01</span>
+
+    <h3>
+      Tek kutu
+    </h3>
+
+    <p>
+      URL'yi yapıştır.
+      Platformu Downly tanısın.
+    </p>
+
+  </article>
+
+
+  <article>
+
+    <span>02</span>
+
+    <h3>
+      Rahat seçim
+    </h3>
+
+    <p>
+      Uygun kalite seçeneklerini
+      sade bir listeden seç.
+    </p>
+
+  </article>
+
+
+  <article>
+
+    <span>03</span>
+
+    <h3>
+      Hızlı sonuç
+    </h3>
+
+    <p>
+      Gereksiz ekranlar olmadan
+      doğrudan indir.
+    </p>
+
+  </article>
+
+</section>
+
+
+<section
+  id="how"
+  class="how"
+>
+
+  <span class="section-kicker">
+    NASIL ÇALIŞIR?
+  </span>
+
+  <h2>
+    Üç adım, hepsi bu.
+  </h2>
+
+  <div class="steps">
+
+    <div>
+      <b>1</b>
+      <span>
+        Bağlantıyı kopyala
+      </span>
+    </div>
+
+    <div>
+      <b>2</b>
+      <span>
+        Downly'ye yapıştır
+      </span>
+    </div>
+
+    <div>
+      <b>3</b>
+      <span>
+        Kaliteyi seç ve indir
+      </span>
+    </div>
+
+  </div>
+
+</section>
+
+
+<section class="trust">
+
+  <div>
+
+    <b>🔒</b>
+
+    <span>
+      <strong>
+        Şifre istemiyoruz.
+      </strong>
+      Hesabına giriş yapman gerekmez.
+    </span>
+
+  </div>
+
+
+  <div>
+
+    <b>⚡</b>
+
+    <span>
+      <strong>
+        Gereksiz kalabalık yok.
+      </strong>
+      Sadece ihtiyacın olan akış.
+    </span>
+
+  </div>
+
+
+  <div>
+
+    <b>✓</b>
+
+    <span>
+      <strong>
+        Şeffaf kullanım.
+      </strong>
+      İçerik haklarına saygı göster.
+    </span>
+
+  </div>
+
+</section>
+
 </main>
-<footer><span>© 2026 Downly</span><span>Herkese açık / izinli içerikler için.</span></footer>
+
+
+<footer>
+
+  <span>
+    © 2026 Downly tüm hakları saklıdır AHMETİN GÖT DELİĞİ BİLE
+  </span>
+
+  <span>
+    Herkese açık / izinli içerikler için.
+  </span>
+
+</footer>
+
+
 <script src="/app.js"></script>
-</body></html>
+
+</body>
+</html>
